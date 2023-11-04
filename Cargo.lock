@@ -1008,6 +1008,7 @@ dependencies = [
  "embedded-hal 1.0.0-rc.1",
  "embedded-hal-async",
  "embedded-io-async",
+ "embedded-nal-async",
  "embedded-storage",
  "fixed",
  "fixed-macro",

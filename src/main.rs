@@ -5,17 +5,24 @@
 #![no_main]
 #![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
+mod registry_map;
+
+use core::str::FromStr;
 
 use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_net::tcp::TcpSocket;
-use embassy_net::{Config, Stack, StackResources};
+use embedded_nal_async::{TcpConnect, SocketAddr};
+use embassy_net::tcp::client::{TcpConnection, TcpClient, TcpClientState};
+use embassy_net::{Config, Stack, StackResources, IpEndpoint, IpAddress};
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
+use rust_mqtt::client::client::MqttClient;
+use rust_mqtt::client::client_config::ClientConfig;
+use rust_mqtt::utils::rng_generator::CountingRng;
 use static_cell::make_static;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -26,7 +33,10 @@ bind_interrupts!(struct Irqs {
 const WIFI_NETWORK: &str = include_str!("../secrets/network_name");
 const WIFI_PASSWORD: &str = include_str!("../secrets/network_pass");
 const REGISTRY_MAP: &str = include_str!("../assets/maps/registry_map");
-const SAMPLE_DELAY: u64 = 1000;
+const MQTT_ENDPOINT: &str = include_str!("../secrets/mqtt_endpoint");
+const MQTT_PASSWORD: &str = include_str!("../secrets/mqtt_password");
+const MQTT_USERNAME: &str = include_str!("../secrets/mqtt_user");
+const RECONNECTION_SECONDS: u64 = 5;
 
 #[embassy_executor::task]
 async fn wifi_task(
@@ -109,15 +119,53 @@ async fn main(spawner: Spawner) {
     }
 
     // And now we can use it!
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
     let mut led_status = false;
+
+    let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
+    let client = TcpClient::new(&stack, &state);
+    let mqtt_endpoint = SocketAddr::from_str(MQTT_ENDPOINT).unwrap();
+
+    //Setup MQTT Config
+    let mut config = ClientConfig::new(
+        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+        CountingRng(20000),
+    );
+    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+    config.add_client_id("client");
+    // config.add_username(USERNAME);
+    // config.add_password(PASSWORD);
+    config.max_packet_size = 100;
+
+    let mut recv_buffer = [0; 80];
+    let mut write_buffer = [0; 80];
+
     loop {
-        let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(10)));
-        
-        led_status = !led_status;
-        control.gpio_set(0, led_status).await;
-        Timer::after(Duration::from_millis(SAMPLE_DELAY)).await;
+        let connection = match client.connect(mqtt_endpoint).await {
+            Ok(connection) => {
+                info!("Connected to MQTT endpoint");
+                connection
+            },
+            Err(err) => {
+                error!("Failed to connect to MQTT endpoint: {:?}", err);
+                Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
+                continue;
+            }
+        };
+    
+        let mut mqtt_client = MqttClient::<_, 5, _>::new(
+            connection,
+            &mut write_buffer,
+            80,
+            &mut recv_buffer,
+            80,
+            config,
+        );
+    
+        loop {
+    
+            led_status = !led_status;
+            control.gpio_set(0, led_status).await;
+            Timer::after(Duration::from_millis(1000)).await;
+        }
     }
 }
