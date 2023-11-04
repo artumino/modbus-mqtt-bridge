@@ -1,0 +1,370 @@
+modbus-mqtt-bridge v0.1.0 (/home/artum/ArtumDev/modbus-mqtt-bridge)
+├── cortex-m v0.7.7
+│   ├── bare-metal v0.2.5
+│   │   [build-dependencies]
+│   │   └── rustc_version v0.2.3
+│   │       └── semver v0.9.0
+│   │           └── semver-parser v0.7.0
+│   ├── bitfield v0.13.2
+│   ├── embedded-hal v0.2.7
+│   │   ├── nb v0.1.3
+│   │   │   └── nb v1.1.0
+│   │   └── void v1.0.2
+│   └── volatile-register v0.2.1
+│       └── vcell v0.1.3
+├── cortex-m-rt v0.7.3
+│   └── cortex-m-rt-macros v0.7.0 (proc-macro)
+│       ├── proc-macro2 v1.0.67
+│       │   └── unicode-ident v1.0.12
+│       ├── quote v1.0.33
+│       │   └── proc-macro2 v1.0.67 (*)
+│       └── syn v1.0.109
+│           ├── proc-macro2 v1.0.67 (*)
+│           ├── quote v1.0.33 (*)
+│           └── unicode-ident v1.0.12
+├── cyw43 v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   ├── cortex-m v0.7.7 (*)
+│   ├── cortex-m-rt v0.7.3 (*)
+│   ├── defmt v0.3.5
+│   │   ├── bitflags v1.3.2
+│   │   └── defmt-macros v0.3.6 (proc-macro)
+│   │       ├── defmt-parser v0.3.3
+│   │       │   └── thiserror v1.0.49
+│   │       │       └── thiserror-impl v1.0.49 (proc-macro)
+│   │       │           ├── proc-macro2 v1.0.67 (*)
+│   │       │           ├── quote v1.0.33 (*)
+│   │       │           └── syn v2.0.37
+│   │       │               ├── proc-macro2 v1.0.67 (*)
+│   │       │               ├── quote v1.0.33 (*)
+│   │       │               └── unicode-ident v1.0.12
+│   │       ├── proc-macro-error v1.0.4
+│   │       │   ├── proc-macro-error-attr v1.0.4 (proc-macro)
+│   │       │   │   ├── proc-macro2 v1.0.67 (*)
+│   │       │   │   └── quote v1.0.33 (*)
+│   │       │   │   [build-dependencies]
+│   │       │   │   └── version_check v0.9.4
+│   │       │   ├── proc-macro2 v1.0.67 (*)
+│   │       │   ├── quote v1.0.33 (*)
+│   │       │   └── syn v1.0.109 (*)
+│   │       │   [build-dependencies]
+│   │       │   └── version_check v0.9.4
+│   │       ├── proc-macro2 v1.0.67 (*)
+│   │       ├── quote v1.0.33 (*)
+│   │       └── syn v2.0.37 (*)
+│   ├── embassy-futures v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   ├── embassy-net-driver-channel v0.2.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── embassy-futures v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── embassy-net-driver v0.2.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   │   └── defmt v0.3.5 (*)
+│   │   └── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │       ├── cfg-if v1.0.0
+│   │       ├── critical-section v1.1.2
+│   │       ├── defmt v0.3.5 (*)
+│   │       ├── futures-util v0.3.29
+│   │       │   ├── futures-core v0.3.29
+│   │       │   ├── futures-macro v0.3.29 (proc-macro)
+│   │       │   │   ├── proc-macro2 v1.0.67 (*)
+│   │       │   │   ├── quote v1.0.33 (*)
+│   │       │   │   └── syn v2.0.37 (*)
+│   │       │   ├── futures-sink v0.3.29
+│   │       │   ├── futures-task v0.3.29
+│   │       │   ├── pin-project-lite v0.2.13
+│   │       │   └── pin-utils v0.1.0
+│   │       └── heapless v0.7.16
+│   │           ├── atomic-polyfill v0.1.11
+│   │           │   └── critical-section v1.1.2
+│   │           ├── defmt v0.3.5 (*)
+│   │           ├── hash32 v0.2.1
+│   │           │   └── byteorder v1.4.3
+│   │           └── stable_deref_trait v1.2.0
+│   │           [build-dependencies]
+│   │           └── rustc_version v0.4.0
+│   │               └── semver v1.0.18
+│   ├── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   ├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── cfg-if v1.0.0
+│   │   ├── critical-section v1.1.2
+│   │   ├── defmt v0.3.5 (*)
+│   │   ├── embedded-hal v0.2.7 (*)
+│   │   ├── embedded-hal v1.0.0-rc.1
+│   │   ├── embedded-hal-async v1.0.0-rc.1
+│   │   │   └── embedded-hal v1.0.0-rc.1
+│   │   ├── futures-util v0.3.29 (*)
+│   │   └── heapless v0.7.16 (*)
+│   ├── embedded-hal v1.0.0-rc.1
+│   ├── futures v0.3.29
+│   │   ├── futures-channel v0.3.29
+│   │   │   ├── futures-core v0.3.29
+│   │   │   └── futures-sink v0.3.29
+│   │   ├── futures-core v0.3.29
+│   │   ├── futures-io v0.3.29
+│   │   ├── futures-sink v0.3.29
+│   │   ├── futures-task v0.3.29
+│   │   └── futures-util v0.3.29 (*)
+│   └── num_enum v0.5.11
+│       └── num_enum_derive v0.5.11 (proc-macro)
+│           ├── proc-macro2 v1.0.67 (*)
+│           ├── quote v1.0.33 (*)
+│           └── syn v1.0.109 (*)
+├── cyw43-pio v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   ├── cyw43 v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   ├── defmt v0.3.5 (*)
+│   ├── embassy-rp v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── atomic-polyfill v1.0.3
+│   │   │   └── critical-section v1.1.2
+│   │   ├── cfg-if v1.0.0
+│   │   ├── cortex-m v0.7.7 (*)
+│   │   ├── cortex-m-rt v0.7.3 (*)
+│   │   ├── critical-section v1.1.2
+│   │   ├── defmt v0.3.5 (*)
+│   │   ├── embassy-embedded-hal v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   │   ├── defmt v0.3.5 (*)
+│   │   │   ├── embassy-futures v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   │   ├── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   │   │   ├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   │   │   ├── embedded-hal v0.2.7 (*)
+│   │   │   ├── embedded-hal v1.0.0-rc.1
+│   │   │   ├── embedded-hal-async v1.0.0-rc.1 (*)
+│   │   │   ├── embedded-storage v0.3.0
+│   │   │   ├── embedded-storage-async v0.4.0
+│   │   │   │   └── embedded-storage v0.3.0
+│   │   │   └── nb v1.1.0
+│   │   ├── embassy-futures v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── embassy-hal-internal v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   │   ├── cortex-m v0.7.7 (*)
+│   │   │   ├── critical-section v1.1.2
+│   │   │   ├── defmt v0.3.5 (*)
+│   │   │   └── num-traits v0.2.16
+│   │   │       [build-dependencies]
+│   │   │       └── autocfg v1.1.0
+│   │   ├── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   │   ├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   │   ├── embassy-usb-driver v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   │   └── defmt v0.3.5 (*)
+│   │   ├── embedded-hal v0.2.7 (*)
+│   │   ├── embedded-hal v1.0.0-rc.1
+│   │   ├── embedded-hal-async v1.0.0-rc.1 (*)
+│   │   ├── embedded-hal-nb v1.0.0-rc.1
+│   │   │   ├── embedded-hal v1.0.0-rc.1
+│   │   │   └── nb v1.1.0
+│   │   ├── embedded-io v0.6.1
+│   │   │   └── defmt v0.3.5 (*)
+│   │   ├── embedded-io-async v0.6.0
+│   │   │   ├── defmt v0.3.5 (*)
+│   │   │   └── embedded-io v0.6.1 (*)
+│   │   ├── embedded-storage v0.3.0
+│   │   ├── embedded-storage-async v0.4.0 (*)
+│   │   ├── fixed v1.24.0
+│   │   │   ├── az v1.2.1
+│   │   │   ├── bytemuck v1.14.0
+│   │   │   ├── half v2.3.1
+│   │   │   │   └── cfg-if v1.0.0
+│   │   │   └── typenum v1.16.0
+│   │   ├── futures v0.3.29 (*)
+│   │   ├── nb v1.1.0
+│   │   ├── pio v0.2.1
+│   │   │   ├── arrayvec v0.7.4
+│   │   │   ├── num_enum v0.5.11 (*)
+│   │   │   └── paste v1.0.14 (proc-macro)
+│   │   ├── pio-proc v0.2.2 (proc-macro)
+│   │   │   ├── codespan-reporting v0.11.1
+│   │   │   │   ├── termcolor v1.2.0
+│   │   │   │   └── unicode-width v0.1.10
+│   │   │   ├── lalrpop-util v0.19.12
+│   │   │   │   └── regex v1.9.1
+│   │   │   │       ├── aho-corasick v1.0.2
+│   │   │   │       │   └── memchr v2.6.3
+│   │   │   │       ├── memchr v2.6.3
+│   │   │   │       ├── regex-automata v0.3.4
+│   │   │   │       │   ├── aho-corasick v1.0.2 (*)
+│   │   │   │       │   ├── memchr v2.6.3
+│   │   │   │       │   └── regex-syntax v0.7.4
+│   │   │   │       └── regex-syntax v0.7.4
+│   │   │   ├── pio v0.2.1
+│   │   │   │   ├── arrayvec v0.7.4
+│   │   │   │   ├── num_enum v0.5.11
+│   │   │   │   │   └── num_enum_derive v0.5.11 (proc-macro) (*)
+│   │   │   │   └── paste v1.0.14 (proc-macro)
+│   │   │   ├── pio-parser v0.2.2
+│   │   │   │   ├── lalrpop-util v0.19.12 (*)
+│   │   │   │   └── pio v0.2.1 (*)
+│   │   │   │   [build-dependencies]
+│   │   │   │   ├── lalrpop v0.19.12
+│   │   │   │   │   ├── ascii-canvas v3.0.0
+│   │   │   │   │   │   └── term v0.7.0
+│   │   │   │   │   │       └── dirs-next v2.0.0
+│   │   │   │   │   │           ├── cfg-if v1.0.0
+│   │   │   │   │   │           └── dirs-sys-next v0.1.2
+│   │   │   │   │   │               └── libc v0.2.147
+│   │   │   │   │   ├── bit-set v0.5.3
+│   │   │   │   │   │   └── bit-vec v0.6.3
+│   │   │   │   │   ├── diff v0.1.13
+│   │   │   │   │   ├── ena v0.14.2
+│   │   │   │   │   │   └── log v0.4.19
+│   │   │   │   │   ├── is-terminal v0.4.9
+│   │   │   │   │   │   └── rustix v0.38.4
+│   │   │   │   │   │       ├── bitflags v2.3.3
+│   │   │   │   │   │       └── linux-raw-sys v0.4.3
+│   │   │   │   │   ├── itertools v0.10.5
+│   │   │   │   │   │   └── either v1.9.0
+│   │   │   │   │   ├── lalrpop-util v0.19.12 (*)
+│   │   │   │   │   ├── petgraph v0.6.3
+│   │   │   │   │   │   ├── fixedbitset v0.4.2
+│   │   │   │   │   │   └── indexmap v1.9.3
+│   │   │   │   │   │       └── hashbrown v0.12.3
+│   │   │   │   │   │       [build-dependencies]
+│   │   │   │   │   │       └── autocfg v1.1.0
+│   │   │   │   │   ├── regex v1.9.1 (*)
+│   │   │   │   │   ├── regex-syntax v0.6.29
+│   │   │   │   │   ├── string_cache v0.8.7
+│   │   │   │   │   │   ├── new_debug_unreachable v1.0.4
+│   │   │   │   │   │   ├── once_cell v1.18.0
+│   │   │   │   │   │   ├── parking_lot v0.12.1
+│   │   │   │   │   │   │   ├── lock_api v0.4.10
+│   │   │   │   │   │   │   │   └── scopeguard v1.2.0
+│   │   │   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │   │   │   └── autocfg v1.1.0
+│   │   │   │   │   │   │   └── parking_lot_core v0.9.8
+│   │   │   │   │   │   │       ├── cfg-if v1.0.0
+│   │   │   │   │   │   │       ├── libc v0.2.147
+│   │   │   │   │   │   │       └── smallvec v1.11.0
+│   │   │   │   │   │   ├── phf_shared v0.10.0
+│   │   │   │   │   │   │   └── siphasher v0.3.10
+│   │   │   │   │   │   └── precomputed-hash v0.1.1
+│   │   │   │   │   ├── term v0.7.0 (*)
+│   │   │   │   │   ├── tiny-keccak v2.0.2
+│   │   │   │   │   │   └── crunchy v0.2.2
+│   │   │   │   │   └── unicode-xid v0.2.4
+│   │   │   │   └── regex-syntax v0.6.29
+│   │   │   ├── proc-macro-error v1.0.4 (*)
+│   │   │   ├── proc-macro2 v1.0.67 (*)
+│   │   │   ├── quote v1.0.33 (*)
+│   │   │   ├── regex-syntax v0.6.29
+│   │   │   └── syn v1.0.109 (*)
+│   │   ├── rand_core v0.6.4
+│   │   ├── rp-pac v6.0.0
+│   │   │   ├── cortex-m v0.7.7 (*)
+│   │   │   └── cortex-m-rt v0.7.3 (*)
+│   │   └── rp2040-boot2 v0.3.0
+│   │       [build-dependencies]
+│   │       └── crc-any v2.4.3
+│   │           └── debug-helper v0.3.13
+│   ├── fixed v1.24.0 (*)
+│   ├── pio v0.2.1 (*)
+│   └── pio-proc v0.2.2 (proc-macro) (*)
+├── defmt v0.3.5 (*)
+├── defmt-rtt v0.4.0
+│   ├── critical-section v1.1.2
+│   └── defmt v0.3.5 (*)
+├── embassy-embedded-hal v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+├── embassy-executor v0.3.1 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   ├── atomic-polyfill v1.0.3 (*)
+│   ├── cortex-m v0.7.7 (*)
+│   ├── critical-section v1.1.2
+│   ├── defmt v0.3.5 (*)
+│   ├── embassy-macros v0.2.1 (proc-macro) (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   │   ├── darling v0.20.3
+│   │   │   ├── darling_core v0.20.3
+│   │   │   │   ├── fnv v1.0.7
+│   │   │   │   ├── ident_case v1.0.1
+│   │   │   │   ├── proc-macro2 v1.0.67 (*)
+│   │   │   │   ├── quote v1.0.33 (*)
+│   │   │   │   ├── strsim v0.10.0
+│   │   │   │   └── syn v2.0.37 (*)
+│   │   │   └── darling_macro v0.20.3 (proc-macro)
+│   │   │       ├── darling_core v0.20.3 (*)
+│   │   │       ├── quote v1.0.33 (*)
+│   │   │       └── syn v2.0.37 (*)
+│   │   ├── proc-macro2 v1.0.67 (*)
+│   │   ├── quote v1.0.33 (*)
+│   │   └── syn v2.0.37 (*)
+│   ├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   └── futures-util v0.3.29 (*)
+├── embassy-futures v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+├── embassy-net v0.2.1 (https://github.com/embassy-rs/embassy.git#655ed3aa)
+│   ├── as-slice v0.2.1
+│   │   └── stable_deref_trait v1.2.0
+│   ├── atomic-pool v1.0.1
+│   │   ├── as-slice v0.1.5
+│   │   │   ├── generic-array v0.12.4
+│   │   │   │   └── typenum v1.16.0
+│   │   │   ├── generic-array v0.13.3
+│   │   │   │   └── typenum v1.16.0
+│   │   │   ├── generic-array v0.14.7
+│   │   │   │   └── typenum v1.16.0
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── version_check v0.9.4
+│   │   │   └── stable_deref_trait v1.2.0
+│   │   ├── as-slice v0.2.1 (*)
+│   │   ├── atomic-polyfill v1.0.3 (*)
+│   │   └── stable_deref_trait v1.2.0
+│   ├── defmt v0.3.5 (*)
+│   ├── embassy-net-driver v0.2.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   ├── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   ├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+│   ├── embedded-io-async v0.6.0 (*)
+│   ├── embedded-nal-async v0.6.0
+│   │   ├── embedded-io-async v0.6.0 (*)
+│   │   ├── embedded-nal v0.7.0
+│   │   │   ├── heapless v0.7.16 (*)
+│   │   │   ├── nb v1.1.0
+│   │   │   └── no-std-net v0.6.0
+│   │   ├── heapless v0.7.16 (*)
+│   │   └── no-std-net v0.6.0
+│   ├── futures v0.3.29 (*)
+│   ├── generic-array v0.14.7 (*)
+│   ├── heapless v0.7.16 (*)
+│   ├── managed v0.8.0
+│   ├── smoltcp v0.10.0
+│   │   ├── bitflags v1.3.2
+│   │   ├── byteorder v1.4.3
+│   │   ├── cfg-if v1.0.0
+│   │   ├── defmt v0.3.5 (*)
+│   │   ├── heapless v0.7.16 (*)
+│   │   └── managed v0.8.0
+│   └── stable_deref_trait v1.2.0
+├── embassy-rp v0.1.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+├── embassy-sync v0.4.0 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+├── embassy-time v0.1.5 (https://github.com/embassy-rs/embassy.git#655ed3aa) (*)
+├── embedded-hal v1.0.0-rc.1
+├── embedded-hal-async v1.0.0-rc.1 (*)
+├── embedded-io-async v0.6.0 (*)
+├── embedded-storage v0.3.0
+├── fixed v1.24.0 (*)
+├── fixed-macro v1.2.0
+│   ├── fixed v1.24.0 (*)
+│   ├── fixed-macro-impl v1.2.0 (proc-macro)
+│   │   ├── fixed v1.24.0
+│   │   │   ├── az v1.2.1
+│   │   │   ├── bytemuck v1.14.0
+│   │   │   ├── half v2.3.1
+│   │   │   │   └── cfg-if v1.0.0
+│   │   │   └── typenum v1.16.0
+│   │   ├── paste v1.0.14 (proc-macro)
+│   │   ├── proc-macro-error v1.0.4 (*)
+│   │   ├── proc-macro2 v1.0.67 (*)
+│   │   ├── quote v1.0.33 (*)
+│   │   └── syn v1.0.109 (*)
+│   └── fixed-macro-types v1.2.0
+│       ├── fixed v1.24.0 (*)
+│       └── fixed-macro-impl v1.2.0 (proc-macro) (*)
+├── futures v0.3.29 (*)
+├── heapless v0.7.16 (*)
+├── panic-probe v0.3.1
+│   ├── cortex-m v0.7.7 (*)
+│   └── defmt v0.3.5 (*)
+├── pio v0.2.1 (*)
+├── pio-proc v0.2.2 (proc-macro) (*)
+├── portable-atomic v1.5.1
+│   └── critical-section v1.1.2
+├── rmodbus v0.7.6
+│   ├── heapless v0.7.16 (*)
+│   └── ieee754 v0.2.6
+├── rust-mqtt v0.1.5
+│   ├── defmt v0.3.5 (*)
+│   ├── embedded-io v0.4.0
+│   ├── heapless v0.7.16 (*)
+│   ├── log v0.4.19
+│   └── rand_core v0.6.4
+└── static_cell v2.0.0
+    └── portable-atomic v1.5.1 (*)
