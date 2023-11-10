@@ -32,6 +32,9 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
 });
 
+const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
+const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
+
 const WIFI_NETWORK: &str = include_str!("../secrets/network_name");
 const WIFI_PASSWORD: &str = include_str!("../secrets/network_pass");
 const REGISTRY_MAP: &str = include_str!("../assets/maps/registry_map");
@@ -64,16 +67,6 @@ async fn main(spawner: Spawner) {
 
     let p = embassy_rp::init(Default::default());
 
-    let fw = include_bytes!("../assets/firmwares/43439A0.bin");
-    let clm = include_bytes!("../assets/firmwares/43439A0_clm.bin");
-
-    // To make flashing faster for development, you may want to flash the firmwares independently
-    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-    //     probe-rs download 43439A0.bin --format bin --chip RP2040 --base-address 0x10100000
-    //     probe-rs download 43439A0_clm.bin --format bin --chip RP2040 --base-address 0x10140000
-    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 224190) };
-    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
-
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
     let mut pio = Pio::new(p.PIO0, Irqs);
@@ -88,10 +81,10 @@ async fn main(spawner: Spawner) {
     );
 
     let state = make_static!(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, WIFI_FIRMWARE).await;
     unwrap!(spawner.spawn(wifi_task(runner)));
 
-    control.init(clm).await;
+    control.init(WIFI_CLM).await;
     control
         .set_power_management(cyw43::PowerManagementMode::PowerSave)
         .await;
@@ -122,16 +115,14 @@ async fn main(spawner: Spawner) {
     }
 
     // And now we can use it!
-    let mut led_status = false;
-
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
     let client = TcpClient::new(stack, &state);
     let mqtt_endpoint = SocketAddr::from_str(MQTT_ENDPOINT).unwrap();
 
-    let mut recv_buffer = [0; 80];
-    let mut write_buffer = [0; 80];
+    let mut recv_buffer = [0; 256];
+    let mut write_buffer = [0; 256];
 
-    loop {
+    'connection_loop: loop {
         control.gpio_set(0, true).await;
         let connection = match client.connect(mqtt_endpoint).await {
             Ok(connection) => {
@@ -156,44 +147,55 @@ async fn main(spawner: Spawner) {
         config.add_client_id(MQTT_DEVICEID);
         config.add_username(MQTT_USERNAME);
         config.add_password(MQTT_PASSWORD);
-        config.max_packet_size = 100;
+        config.max_packet_size = 256;
 
-        let mut mqtt_client = MqttClient::<_, 5, _>::new(
+        let mut mqtt_client = MqttClient::<_, 30, _>::new(
             connection,
             &mut write_buffer,
-            80,
+            256,
             &mut recv_buffer,
-            80,
+            256,
             config,
         );
 
         if let Err(err) = mqtt_client.connect_to_broker().await {
             error!("Failed to connect to MQTT broker: {:?}", err);
             Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
-            continue;
+            continue 'connection_loop;
         }
 
         info!("Connected to MQTT broker");
 
-        loop {
-            let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
-            for entry in registry_map {
-                let mut topic = String::<128>::new();
-                topic.push_str(MQTT_DEVICEID).unwrap();
-                topic.push('/').unwrap();
-                topic.push_str(entry.topic).unwrap();
-                if let Err(err) = mqtt_client
-                    .send_message(entry.topic, b"test", QualityOfService::QoS0, true)
-                    .await
-                {
-                    error!("Failed to send message: {:?}", err);
-                    break;
-                }
+        let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
+        control.gpio_set(0, true).await;
+        'read_loop: for entry in registry_map {
+            let mut topic = String::<128>::new();
+            topic.push_str(MQTT_DEVICEID).unwrap();
+            topic.push('/').unwrap();
+            topic.push_str(entry.topic).unwrap();
+            let response = mqtt_client
+            .send_message(topic.as_str(), b"test", QualityOfService::QoS1, true)
+            .await;
+            if let Err(err) = response
+            {
+                error!("Failed to send message: {:?}", err);
+                control.gpio_set(0, false).await;
+                Timer::after(Duration::from_millis(100)).await;
+                control.gpio_set(0, true).await;
+                Timer::after(Duration::from_millis(100)).await;
+                control.gpio_set(0, false).await;
+                Timer::after(Duration::from_millis(100)).await;
+                control.gpio_set(0, true).await;
+                Timer::after(Duration::from_millis(100)).await;
+                control.gpio_set(0, false).await;
+                break 'read_loop;
             }
-
-            led_status = !led_status;
-            control.gpio_set(0, led_status).await;
-            Timer::after(Duration::from_secs(POLLING_INTERVAL)).await;
         }
+        control.gpio_set(0, false).await;
+        if let Err(err) = mqtt_client.disconnect().await {
+            error!("Failed to disconnect from MQTT broker: {:?}", err);
+        }
+
+        Timer::after(Duration::from_secs(POLLING_INTERVAL)).await;
     }
 }

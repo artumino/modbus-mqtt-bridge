@@ -12,21 +12,24 @@ pub enum RegistryValueType {
 pub struct RegistryEntry<'a> {
     pub reg_type: RegistryType,
     pub address: u16,
+    pub device_id: u8,
     pub reg_value_type: RegistryValueType,
     pub topic: &'a str,
 }
 
 impl<'a> RegistryEntry<'a> {
     pub fn parse_from_line(line: &'a str) -> RegistryEntry {
+        //1,0,i,f,l1_voltage
         let mut split = line.split(',');
+
+        let device_id = split.next().unwrap().parse::<u8>().unwrap();
+        let address = split.next().unwrap().parse::<u16>().unwrap();
 
         let reg_type = match split.next().unwrap() {
             "h" => RegistryType::Holding,
             "i" => RegistryType::Input,
             _ => panic!("Invalid registry type"),
         };
-
-        let address = split.next().unwrap().parse::<u16>().unwrap();
 
         let reg_value_type = match split.next().unwrap() {
             "f" => RegistryValueType::Float,
@@ -38,6 +41,7 @@ impl<'a> RegistryEntry<'a> {
         RegistryEntry {
             reg_type,
             address,
+            device_id,
             reg_value_type,
             topic,
         }
