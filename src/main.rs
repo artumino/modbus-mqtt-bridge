@@ -20,6 +20,7 @@ use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
 use embedded_nal_async::{SocketAddr, TcpConnect};
+use heapless::String;
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
 use rust_mqtt::packet::v5::publish_packet::QualityOfService;
@@ -37,6 +38,7 @@ const REGISTRY_MAP: &str = include_str!("../assets/maps/registry_map");
 const MQTT_ENDPOINT: &str = include_str!("../secrets/mqtt_endpoint");
 const MQTT_PASSWORD: &str = include_str!("../secrets/mqtt_password");
 const MQTT_USERNAME: &str = include_str!("../secrets/mqtt_user");
+const MQTT_DEVICEID: &str = include_str!("../secrets/mqtt_deviceid");
 const RECONNECTION_SECONDS: u64 = 5;
 const POLLING_INTERVAL: u64 = 5;
 
@@ -130,6 +132,7 @@ async fn main(spawner: Spawner) {
     let mut write_buffer = [0; 80];
 
     loop {
+        control.gpio_set(0, true).await;
         let connection = match client.connect(mqtt_endpoint).await {
             Ok(connection) => {
                 info!("Connected to MQTT endpoint");
@@ -137,10 +140,12 @@ async fn main(spawner: Spawner) {
             }
             Err(err) => {
                 error!("Failed to connect to MQTT endpoint: {:?}", err);
+                control.gpio_set(0, false).await;
                 Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
                 continue;
             }
         };
+        control.gpio_set(0, false).await;
 
         //Setup MQTT Config
         let mut config = ClientConfig::new(
@@ -148,7 +153,7 @@ async fn main(spawner: Spawner) {
             CountingRng(20000),
         );
         config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id("client");
+        config.add_client_id(MQTT_DEVICEID);
         config.add_username(MQTT_USERNAME);
         config.add_password(MQTT_PASSWORD);
         config.max_packet_size = 100;
@@ -173,6 +178,10 @@ async fn main(spawner: Spawner) {
         loop {
             let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
             for entry in registry_map {
+                let mut topic = String::<128>::new();
+                topic.push_str(MQTT_DEVICEID).unwrap();
+                topic.push('/').unwrap();
+                topic.push_str(entry.topic).unwrap();
                 if let Err(err) = mqtt_client
                     .send_message(entry.topic, b"test", QualityOfService::QoS0, true)
                     .await
