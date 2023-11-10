@@ -43,7 +43,7 @@ const MQTT_PASSWORD: &str = include_str!("../secrets/mqtt_password");
 const MQTT_USERNAME: &str = include_str!("../secrets/mqtt_user");
 const MQTT_DEVICEID: &str = include_str!("../secrets/mqtt_deviceid");
 const RECONNECTION_SECONDS: u64 = 5;
-const POLLING_INTERVAL: u64 = 5;
+const POLLING_INTERVAL: u64 = 15;
 
 #[embassy_executor::task]
 async fn wifi_task(
