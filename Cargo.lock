@@ -482,7 +482,7 @@ dependencies = [
  "embedded-hal 1.0.0-rc.1",
  "embedded-hal-async",
  "embedded-hal-nb",
- "embedded-io 0.6.1",
+ "embedded-io",
  "embedded-io-async",
  "embedded-storage",
  "embedded-storage-async",
@@ -568,18 +568,9 @@ dependencies = [
 
 [[package]]
 name = "embedded-io"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
-
-[[package]]
-name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
-dependencies = [
- "defmt",
-]
 
 [[package]]
 name = "embedded-io-async"
@@ -587,8 +578,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de03527d6fb488b2d7c7a4dc81dfb6a657efe264256bfc70bb899746821666b1"
 dependencies = [
- "defmt",
- "embedded-io 0.6.1",
+ "embedded-io",
 ]
 
 [[package]]
@@ -1007,7 +997,6 @@ dependencies = [
  "embassy-time",
  "embedded-hal 1.0.0-rc.1",
  "embedded-hal-async",
- "embedded-io-async",
  "embedded-nal-async",
  "embedded-storage",
  "fixed",
@@ -1354,11 +1343,11 @@ dependencies = [
 [[package]]
 name = "rust-mqtt"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdc13ec0011fe629417adf19495d202855fdfa63abbf44c34552d18adce3b5f8"
+source = "git+https://github.com/sambenko/rust-mqtt.git#9c84777bd75fa857966f3b9f28e4086baa3ce6cd"
 dependencies = [
  "defmt",
- "embedded-io 0.4.0",
+ "embedded-io",
+ "embedded-io-async",
  "heapless",
  "rand_core",
 ]

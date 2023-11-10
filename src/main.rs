@@ -12,16 +12,17 @@ use core::str::FromStr;
 use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
-use embedded_nal_async::{TcpConnect, SocketAddr};
-use embassy_net::tcp::client::{TcpConnection, TcpClient, TcpClientState};
-use embassy_net::{Config, Stack, StackResources, IpEndpoint, IpAddress};
+use embassy_net::tcp::client::{TcpClient, TcpClientState};
+use embassy_net::{Config, Stack, StackResources};
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
+use embedded_nal_async::{SocketAddr, TcpConnect};
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
+use rust_mqtt::packet::v5::publish_packet::QualityOfService;
 use rust_mqtt::utils::rng_generator::CountingRng;
 use static_cell::make_static;
 use {defmt_rtt as _, panic_probe as _};
@@ -37,6 +38,7 @@ const MQTT_ENDPOINT: &str = include_str!("../secrets/mqtt_endpoint");
 const MQTT_PASSWORD: &str = include_str!("../secrets/mqtt_password");
 const MQTT_USERNAME: &str = include_str!("../secrets/mqtt_user");
 const RECONNECTION_SECONDS: u64 = 5;
+const POLLING_INTERVAL: u64 = 5;
 
 #[embassy_executor::task]
 async fn wifi_task(
@@ -62,7 +64,6 @@ async fn main(spawner: Spawner) {
 
     let fw = include_bytes!("../assets/firmwares/43439A0.bin");
     let clm = include_bytes!("../assets/firmwares/43439A0_clm.bin");
-
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
@@ -122,19 +123,8 @@ async fn main(spawner: Spawner) {
     let mut led_status = false;
 
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
-    let client = TcpClient::new(&stack, &state);
+    let client = TcpClient::new(stack, &state);
     let mqtt_endpoint = SocketAddr::from_str(MQTT_ENDPOINT).unwrap();
-
-    //Setup MQTT Config
-    let mut config = ClientConfig::new(
-        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-        CountingRng(20000),
-    );
-    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-    config.add_client_id("client");
-    // config.add_username(USERNAME);
-    // config.add_password(PASSWORD);
-    config.max_packet_size = 100;
 
     let mut recv_buffer = [0; 80];
     let mut write_buffer = [0; 80];
@@ -144,14 +134,25 @@ async fn main(spawner: Spawner) {
             Ok(connection) => {
                 info!("Connected to MQTT endpoint");
                 connection
-            },
+            }
             Err(err) => {
                 error!("Failed to connect to MQTT endpoint: {:?}", err);
                 Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
                 continue;
             }
         };
-    
+
+        //Setup MQTT Config
+        let mut config = ClientConfig::new(
+            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+            CountingRng(20000),
+        );
+        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+        config.add_client_id("client");
+        config.add_username(MQTT_USERNAME);
+        config.add_password(MQTT_PASSWORD);
+        config.max_packet_size = 100;
+
         let mut mqtt_client = MqttClient::<_, 5, _>::new(
             connection,
             &mut write_buffer,
@@ -160,12 +161,30 @@ async fn main(spawner: Spawner) {
             80,
             config,
         );
-    
+
+        if let Err(err) = mqtt_client.connect_to_broker().await {
+            error!("Failed to connect to MQTT broker: {:?}", err);
+            Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
+            continue;
+        }
+
+        info!("Connected to MQTT broker");
+
         loop {
-    
+            let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
+            for entry in registry_map {
+                if let Err(err) = mqtt_client
+                    .send_message(entry.topic, b"test", QualityOfService::QoS0, true)
+                    .await
+                {
+                    error!("Failed to send message: {:?}", err);
+                    break;
+                }
+            }
+
             led_status = !led_status;
             control.gpio_set(0, led_status).await;
-            Timer::after(Duration::from_millis(1000)).await;
+            Timer::after(Duration::from_secs(POLLING_INTERVAL)).await;
         }
     }
 }
