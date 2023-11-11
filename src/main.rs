@@ -4,11 +4,15 @@
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
+#![feature(error_in_core)]
 #![allow(incomplete_features)]
+mod bridge;
+mod mqtt;
 mod registry_map;
 
 use core::str::FromStr;
 
+use cyw43::Control;
 use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
@@ -20,12 +24,13 @@ use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
 use embedded_nal_async::{SocketAddr, TcpConnect};
-use heapless::String;
+
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
-use rust_mqtt::packet::v5::publish_packet::QualityOfService;
+
 use rust_mqtt::utils::rng_generator::CountingRng;
 use static_cell::make_static;
+
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -169,25 +174,11 @@ async fn main(spawner: Spawner) {
         let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
         control.gpio_set(0, true).await;
         'read_loop: for entry in registry_map {
-            let mut topic = String::<128>::new();
-            topic.push_str(MQTT_DEVICEID).unwrap();
-            topic.push('/').unwrap();
-            topic.push_str(entry.topic).unwrap();
-            let response = mqtt_client
-            .send_message(topic.as_str(), b"test", QualityOfService::QoS1, true)
-            .await;
-            if let Err(err) = response
+            if let Err(err) =
+                bridge::read_and_send_entry(&mut mqtt_client, &entry, MQTT_DEVICEID).await
             {
-                error!("Failed to send message: {:?}", err);
-                control.gpio_set(0, false).await;
-                Timer::after(Duration::from_millis(100)).await;
-                control.gpio_set(0, true).await;
-                Timer::after(Duration::from_millis(100)).await;
-                control.gpio_set(0, false).await;
-                Timer::after(Duration::from_millis(100)).await;
-                control.gpio_set(0, true).await;
-                Timer::after(Duration::from_millis(100)).await;
-                control.gpio_set(0, false).await;
+                error!("Failed to send {:?} message: {:?}", entry.topic, err);
+                light_led_exception_pattern(&mut control, 3).await;
                 break 'read_loop;
             }
         }
@@ -197,5 +188,14 @@ async fn main(spawner: Spawner) {
         }
 
         Timer::after(Duration::from_secs(POLLING_INTERVAL)).await;
+    }
+}
+
+async fn light_led_exception_pattern(control: &mut Control<'_>, blinks: u8) {
+    for _ in 0..blinks {
+        control.gpio_set(0, true).await;
+        Timer::after(Duration::from_millis(100)).await;
+        control.gpio_set(0, false).await;
+        Timer::after(Duration::from_millis(100)).await;
     }
 }

@@ -30,6 +30,7 @@ heapless = "0.7.16"
 
 embedded-hal-1 = { package = "embedded-hal", version = "=1.0.0-rc.1" }
 embedded-hal-async = "1.0.0-rc.1"
+embedded-io-async = { version = "0.6.0", features = ["defmt-03"] }
 embedded-storage = { version = "0.3" }
 static_cell = { version = "2", features = ["nightly"]}
 portable-atomic = { version = "1.5", features = ["critical-section"] }
@@ -39,6 +40,8 @@ pio = "0.2.1"
 # Out dependencies
 rust-mqtt = { git = "https://github.com/sambenko/rust-mqtt.git", features = ["no_std", "defmt"], default-features = false }
 rmodbus = { version = "0.7.6", features = ["heapless"], default-features = false }
+rand_core = "0.6.4"
+thiserror = { version = "1.0", package = "thiserror-core", default-features = false }
 
 # this lets you use `cargo fix`!
 [[bin]]
