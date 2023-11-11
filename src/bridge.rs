@@ -13,6 +13,8 @@ pub enum ModBusMqttBridgeError {
     MqttError(MqttError),
     #[error("Modbus error with reason {0}")]
     ModbusError(ModbusError),
+    #[error("Cannot convert to string of length {0}")]
+    CannotConvertToString(usize),
     #[error("Error formatting topic, check that all topics are of max length {0}<{1}")]
     TopicOverflow(usize, usize),
     #[error("Registry parse error")]
@@ -76,15 +78,22 @@ where
     format_topic(&mut topic, base_topic, registry_entry.topic)?;
 
     let modbus_request = ModbusReadRequest::try_from(registry_entry)?;
-    let value = modbus_client
+    let value = match modbus_client
         .send_and_read(&modbus_request)
         .await
-        .map_err(ModBusMqttBridgeError::ModbusError)?;
+        .map_err(ModBusMqttBridgeError::ModbusError)
+    {
+        Ok(value) => value,
+        Err(err) => {
+            defmt::error!("Error reading from modbus: {:?}", err);
+            return Ok(());
+        }
+    };
 
     let mut payload = heapless::String::<32>::new();
     value
         .dump_string(&mut payload)
-        .map_err(ModBusMqttBridgeError::ModbusError)?;
+        .map_err(|_| ModBusMqttBridgeError::CannotConvertToString(32))?;
 
     mqtt_sender.send(topic.as_str(), payload.as_bytes()).await?;
     Ok(())

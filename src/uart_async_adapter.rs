@@ -76,9 +76,6 @@ where
     }
 
     async fn flush(&mut self) -> Result<(), RpUartError> {
-        self.uart_bus
-            .flush()
-            .await
-            .map_err(RpUartError::WriteError)
+        self.uart_bus.flush().await.map_err(RpUartError::WriteError)
     }
 }
