@@ -22,7 +22,7 @@
                     "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge",
                 }
             ],
-            "consoleLogLevel": "Console", //Info, Debug
+            "consoleLogLevel": "Info", //Info, Debug
             "preLaunchTask": "rust: cargo build"
         }
     ]

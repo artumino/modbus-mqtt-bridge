@@ -1,0 +1,20 @@
+{
+    "mqtt": {
+        "endpoint":"localhost:1883",
+        "device_id":"device1",
+        "username":"user1",
+        "password":"password1"
+    },
+    "polling_interval": 5,
+    "reconnect_delay": 5,
+    "network": {
+        "name": "NetwoRkName",
+        "password": "N3TworkP4ssword"
+    },
+    "serial": {
+        "baud_rate": 9600,
+        "data_bits": 8,
+        "parity": "N",
+        "stop_bits": 1
+    }
+}

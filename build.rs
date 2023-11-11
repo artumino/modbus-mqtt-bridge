@@ -14,6 +14,13 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
+    // Create configuration file if missing.
+    if !PathBuf::from("assets/configuration.json").exists() {
+        File::create("assets/configuration.json")
+            .unwrap()
+            .write_all(include_bytes!("assets/configuration.example.json"))
+            .unwrap();
+    }
     // Put `memory.x` in our output directory and ensure it's
     // on the linker search path.
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -28,6 +35,9 @@ fn main() {
     // here, we ensure the build script is only re-run when
     // `memory.x` is changed.
     println!("cargo:rerun-if-changed=memory.x");
+    println!("cargo:rerun-if-changed=\"assets/configuration.json\"");
+    println!("cargo:rerun-if-changed=\"assets/configuration.example.json\"");
+    println!("cargo:rerun-if-changed=\"assets/maps/registry_map\"");
 
     println!("cargo:rustc-link-arg-bins=--nmagic");
     println!("cargo:rustc-link-arg-bins=-Tlink.x");

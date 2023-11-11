@@ -5,8 +5,18 @@ pub enum RegistryType {
     Input,
 }
 
+#[non_exhaustive]
 pub enum RegistryValueType {
-    Float,
+    Float32,
+    Unsigned8,
+    Int8,
+    Unsigned16,
+    Int16,
+    Unsigned32,
+    Int32,
+    Unsigned64,
+    Int64,
+    Float64,
 }
 
 pub struct RegistryEntry<'a> {
@@ -32,7 +42,16 @@ impl<'a> RegistryEntry<'a> {
         };
 
         let reg_value_type = match split.next().unwrap() {
-            "f" => RegistryValueType::Float,
+            "f32" => RegistryValueType::Float32,
+            "u8" => RegistryValueType::Unsigned8,
+            "i8" => RegistryValueType::Int8,
+            "u16" => RegistryValueType::Unsigned16,
+            "i16" => RegistryValueType::Int16,
+            "u32" => RegistryValueType::Unsigned32,
+            "i32" => RegistryValueType::Int32,
+            "u64" => RegistryValueType::Unsigned64,
+            "i64" => RegistryValueType::Int64,
+            "f64" => RegistryValueType::Float64,
             _ => panic!("Invalid registry value type"),
         };
 

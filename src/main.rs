@@ -7,22 +7,25 @@
 #![feature(error_in_core)]
 #![allow(incomplete_features)]
 mod bridge;
+mod configuration;
+mod modbus;
 mod mqtt;
 mod registry_map;
-mod modbus;
+mod uart_async_adapter;
 
 use core::str::FromStr;
 
+use configuration::Configuration;
 use cyw43::Control;
 use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{Config, Stack, StackResources};
-use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0};
-use embassy_rp::pio::{InterruptHandler, Pio};
+use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, UART0};
+use embassy_rp::pio::Pio;
+use embassy_rp::{bind_interrupts, pio, uart};
 use embassy_time::{Duration, Timer};
 use embedded_nal_async::{SocketAddr, TcpConnect};
 
@@ -35,21 +38,15 @@ use static_cell::make_static;
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
+    PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
+    UART0_IRQ => uart::InterruptHandler<UART0>;
 });
 
 const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
 const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
 
-const WIFI_NETWORK: &str = include_str!("../secrets/network_name");
-const WIFI_PASSWORD: &str = include_str!("../secrets/network_pass");
 const REGISTRY_MAP: &str = include_str!("../assets/maps/registry_map");
-const MQTT_ENDPOINT: &str = include_str!("../secrets/mqtt_endpoint");
-const MQTT_PASSWORD: &str = include_str!("../secrets/mqtt_password");
-const MQTT_USERNAME: &str = include_str!("../secrets/mqtt_user");
-const MQTT_DEVICEID: &str = include_str!("../secrets/mqtt_deviceid");
-const RECONNECTION_SECONDS: u64 = 5;
-const POLLING_INTERVAL: u64 = 15;
+const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
 
 #[embassy_executor::task]
 async fn wifi_task(
@@ -67,9 +64,35 @@ async fn net_task(stack: &'static Stack<cyw43::NetDriver<'static>>) -> ! {
     stack.run().await
 }
 
+impl From<&Configuration<'_>> for uart::Config {
+    fn from(config: &Configuration) -> Self {
+        let mut uart_config = uart::Config::default();
+        uart_config.baudrate = config.serial.baud_rate;
+        uart_config.parity = match config.serial.parity {
+            configuration::Parity::Even => uart::Parity::ParityEven,
+            configuration::Parity::Odd => uart::Parity::ParityOdd,
+            _ => uart::Parity::ParityNone,
+        };
+        uart_config.stop_bits = match config.serial.stop_bits {
+            2 => uart::StopBits::STOP2,
+            _ => uart::StopBits::STOP1,
+        };
+        uart_config.data_bits = match config.serial.data_bits {
+            7 => uart::DataBits::DataBits7,
+            6 => uart::DataBits::DataBits6,
+            5 => uart::DataBits::DataBits5,
+            _ => uart::DataBits::DataBits8,
+        };
+        uart_config
+    }
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     info!("Booting phonometer...");
+
+    let (bridge_config, _) =
+        serde_json_core::from_str::<Configuration>(CONFIGURATION_FILE).unwrap();
 
     let p = embassy_rp::init(Default::default());
 
@@ -112,7 +135,10 @@ async fn main(spawner: Spawner) {
 
     loop {
         //control.join_open(WIFI_NETWORK).await;
-        match control.join_wpa2(WIFI_NETWORK, WIFI_PASSWORD).await {
+        match control
+            .join_wpa2(bridge_config.network.name, bridge_config.network.password)
+            .await
+        {
             Ok(_) => break,
             Err(err) => {
                 info!("join failed with status={}", err.status);
@@ -121,13 +147,22 @@ async fn main(spawner: Spawner) {
     }
 
     //Init uart connection
-    //let mut uart_config = embassy_rp::uart::Config::default();
-    //embassy_rp::uart::Uart::new(p.UART0, p.PIN_0, p.PIN_1, irq, tx_dma, rx_dma, uart_config);
+    let uart_bus = uart::Uart::new(
+        p.UART0,
+        p.PIN_0,
+        p.PIN_1,
+        Irqs,
+        p.DMA_CH1,
+        p.DMA_CH2,
+        (&bridge_config).into(),
+    );
+    let mut rp_uart_bus = uart_async_adapter::RpUartAsyncAdapter::new(uart_bus);
+    let mut rtu_channel = modbus::ModbusRTUChannel::new(&mut rp_uart_bus);
 
     // And now we can use it!
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
     let client = TcpClient::new(stack, &state);
-    let mqtt_endpoint = SocketAddr::from_str(MQTT_ENDPOINT).unwrap();
+    let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint).unwrap();
 
     let mut recv_buffer = [0; 256];
     let mut write_buffer = [0; 256];
@@ -142,7 +177,7 @@ async fn main(spawner: Spawner) {
             Err(err) => {
                 error!("Failed to connect to MQTT endpoint: {:?}", err);
                 control.gpio_set(0, false).await;
-                Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
+                Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
                 continue;
             }
         };
@@ -154,9 +189,9 @@ async fn main(spawner: Spawner) {
             CountingRng(20000),
         );
         config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id(MQTT_DEVICEID);
-        config.add_username(MQTT_USERNAME);
-        config.add_password(MQTT_PASSWORD);
+        config.add_client_id(bridge_config.mqtt.device_id);
+        config.add_username(bridge_config.mqtt.username);
+        config.add_password(bridge_config.mqtt.password);
         config.max_packet_size = 256;
 
         let mut mqtt_client = MqttClient::<_, 30, _>::new(
@@ -170,7 +205,7 @@ async fn main(spawner: Spawner) {
 
         if let Err(err) = mqtt_client.connect_to_broker().await {
             error!("Failed to connect to MQTT broker: {:?}", err);
-            Timer::after(Duration::from_secs(RECONNECTION_SECONDS)).await;
+            Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
             continue 'connection_loop;
         }
 
@@ -179,8 +214,13 @@ async fn main(spawner: Spawner) {
         let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
         control.gpio_set(0, true).await;
         'read_loop: for entry in registry_map {
-            if let Err(err) =
-                bridge::read_and_send_entry(&mut mqtt_client, &entry, MQTT_DEVICEID).await
+            if let Err(err) = bridge::read_and_send_entry(
+                &mut mqtt_client,
+                &mut rtu_channel,
+                &entry,
+                bridge_config.mqtt.device_id,
+            )
+            .await
             {
                 error!("Failed to send {:?} message: {}", entry.topic, err);
                 light_led_exception_pattern(&mut control, 3).await;
@@ -192,7 +232,7 @@ async fn main(spawner: Spawner) {
             error!("Failed to disconnect from MQTT broker: {:?}", err);
         }
 
-        Timer::after(Duration::from_secs(POLLING_INTERVAL)).await;
+        Timer::after(Duration::from_secs(bridge_config.polling_interval)).await;
     }
 }
 
