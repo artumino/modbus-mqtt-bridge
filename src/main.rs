@@ -20,6 +20,7 @@ use cyw43::Control;
 use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_futures::select::{select, Either};
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{Config, Stack, StackResources};
 use embassy_rp::gpio::{Level, Output};
@@ -39,7 +40,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
-    UART1_IRQ => uart::InterruptHandler<UART1>;
+    UART1_IRQ => uart::BufferedInterruptHandler<UART1>;
 });
 
 const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
@@ -147,13 +148,15 @@ async fn main(spawner: Spawner) {
     }
 
     //Init uart connection
-    let uart_bus = uart::Uart::new(
+    let mut uart_recv_buffer = [0u8; 256];
+    let mut uart_write_buffer = [0u8; 256];
+    let uart_bus = uart::BufferedUart::new(
         p.UART1,
+        Irqs,
         p.PIN_8,
         p.PIN_9,
-        Irqs,
-        p.DMA_CH1,
-        p.DMA_CH2,
+        &mut uart_write_buffer,
+        &mut uart_recv_buffer,
         (&bridge_config).into(),
     );
     let mut rp_uart_bus = uart_async_adapter::RpUartAsyncAdapter::new(uart_bus);
@@ -164,18 +167,31 @@ async fn main(spawner: Spawner) {
     let client = TcpClient::new(stack, &state);
     let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint).unwrap();
 
-    let mut recv_buffer = [0; 256];
-    let mut write_buffer = [0; 256];
+    let mut tcp_recv_buffer = [0; 256];
+    let mut tcp_write_buffer = [0; 256];
 
     'connection_loop: loop {
         control.gpio_set(0, true).await;
-        let connection = match client.connect(mqtt_endpoint).await {
-            Ok(connection) => {
-                info!("Connected to MQTT endpoint");
-                connection
-            }
-            Err(err) => {
-                error!("Failed to connect to MQTT endpoint: {:?}", err);
+        let connection = match select(
+            client.connect(mqtt_endpoint),
+            Timer::after(Duration::from_secs(bridge_config.reconnect_delay)),
+        )
+        .await
+        {
+            Either::First(response) => match response {
+                Ok(connection) => {
+                    info!("Connected to MQTT endpoint");
+                    connection
+                }
+                Err(err) => {
+                    error!("Failed to connect to MQTT endpoint: {:?}", err);
+                    control.gpio_set(0, false).await;
+                    Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
+                    continue;
+                }
+            },
+            _ => {
+                error!("Failed to connect to MQTT endpoint: Timeout");
                 control.gpio_set(0, false).await;
                 Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
                 continue;
@@ -196,9 +212,9 @@ async fn main(spawner: Spawner) {
 
         let mut mqtt_client = MqttClient::<_, 30, _>::new(
             connection,
-            &mut write_buffer,
+            &mut tcp_write_buffer,
             256,
-            &mut recv_buffer,
+            &mut tcp_recv_buffer,
             256,
             config,
         );

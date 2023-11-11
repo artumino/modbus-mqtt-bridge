@@ -24,6 +24,22 @@
             ],
             "consoleLogLevel": "Info", //Info, Debug
             "preLaunchTask": "rust: cargo build"
+        },
+        {
+            "type": "probe-rs-debug",
+            "request": "attach",
+            "name": "probe-rs attach",
+            "cwd": "${workspaceFolder}",
+            "connectUnderReset": false,
+            "chip": "RP2040",
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "rttEnabled": true,
+                    "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge",
+                }
+            ],
+            "consoleLogLevel": "Info"
         }
     ]
 }

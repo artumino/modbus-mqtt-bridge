@@ -29,7 +29,7 @@ impl ModbusDataType {
                     return Err(ModbusError::CannotParse);
                 }
                 let mut buf = [0u8; 4];
-                buf.copy_from_slice(data);
+                buf.copy_from_slice(&data[0..4]);
                 let value = f32::from_be_bytes(buf);
                 self = ModbusDataType::F32(value);
             }
@@ -80,7 +80,7 @@ pub enum ModbusError {
     #[error("Parse error")]
     CannotParse,
     #[error("Cannot convert to string of length {0}")]
-    CannotConvertToString(usize)
+    CannotConvertToString(usize),
 }
 
 pub trait ModbusClient {

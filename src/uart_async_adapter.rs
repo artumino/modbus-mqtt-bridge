@@ -8,14 +8,14 @@ pub struct RpUartAsyncAdapter<'a, T>
 where
     T: uart::Instance,
 {
-    uart_bus: uart::Uart<'a, T, uart::Async>,
+    uart_bus: uart::BufferedUart<'a, T>,
 }
 
 impl<'a, T> RpUartAsyncAdapter<'a, T>
 where
     T: uart::Instance,
 {
-    pub fn new(uart_bus: uart::Uart<'a, T, uart::Async>) -> Self {
+    pub fn new(uart_bus: uart::BufferedUart<'a, T>) -> Self {
         Self { uart_bus }
     }
 }
@@ -60,9 +60,7 @@ where
         {
             Either::First(result) => result.map_err(RpUartError::ReadError),
             Either::Second(_) => Err(RpUartError::ReadTimeout),
-        }?;
-
-        Ok(buf.len())
+        }
     }
 }
 
@@ -74,13 +72,13 @@ where
         self.uart_bus
             .write(buf)
             .await
-            .map_err(RpUartError::WriteError)?;
-        Ok(buf.len())
+            .map_err(RpUartError::WriteError)
     }
 
     async fn flush(&mut self) -> Result<(), RpUartError> {
         self.uart_bus
-            .blocking_flush()
+            .flush()
+            .await
             .map_err(RpUartError::WriteError)
     }
 }
