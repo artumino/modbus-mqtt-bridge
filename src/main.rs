@@ -23,7 +23,7 @@ use embassy_executor::Spawner;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{Config, Stack, StackResources};
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, UART0};
+use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, UART1};
 use embassy_rp::pio::Pio;
 use embassy_rp::{bind_interrupts, pio, uart};
 use embassy_time::{Duration, Timer};
@@ -39,7 +39,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
-    UART0_IRQ => uart::InterruptHandler<UART0>;
+    UART1_IRQ => uart::InterruptHandler<UART1>;
 });
 
 const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
@@ -148,9 +148,9 @@ async fn main(spawner: Spawner) {
 
     //Init uart connection
     let uart_bus = uart::Uart::new(
-        p.UART0,
-        p.PIN_0,
-        p.PIN_1,
+        p.UART1,
+        p.PIN_8,
+        p.PIN_9,
         Irqs,
         p.DMA_CH1,
         p.DMA_CH2,
