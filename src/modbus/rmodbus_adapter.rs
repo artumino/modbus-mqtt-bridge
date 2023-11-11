@@ -42,10 +42,10 @@ where
         self.connection
             .read(&mut buf)
             .await
-            .map_err(|_| ModbusError::CannotRead)?;
+            .map_err(|_| ModbusError::ModbusReadError)?;
 
-        let len = guess_response_frame_len(&buf, ModbusProto::Rtu)
-            .map_err(|_| ModbusError::CannotRead)? as usize;
+        let len = guess_response_frame_len(&buf, mreq.proto)
+            .map_err(|_| ModbusError::ModbusReadError)? as usize;
 
         let mut response = heapless::Vec::<u8, 64>::new();
         response.copy_from_slice(&buf);
@@ -54,7 +54,7 @@ where
             self.connection
                 .read(slice)
                 .await
-                .map_err(|_| ModbusError::CannotRead)?;
+                .map_err(|_| ModbusError::ModbusReadError)?;
         }
 
         let result = mreq

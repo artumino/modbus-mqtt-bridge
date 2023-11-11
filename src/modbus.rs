@@ -76,11 +76,11 @@ pub enum ModbusError {
     #[error("Cannot build request")]
     CannotBuildRequest,
     #[error("Read error")]
-    CannotRead,
+    ModbusReadError,
     #[error("Parse error")]
     CannotParse,
     #[error("Cannot convert to string of length {0}")]
-    CannotConvertToString(usize),
+    CannotConvertToString(usize)
 }
 
 pub trait ModbusClient {
