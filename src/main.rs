@@ -9,6 +9,7 @@
 mod bridge;
 mod mqtt;
 mod registry_map;
+mod modbus;
 
 use core::str::FromStr;
 
@@ -119,6 +120,10 @@ async fn main(spawner: Spawner) {
         }
     }
 
+    //Init uart connection
+    //let mut uart_config = embassy_rp::uart::Config::default();
+    //embassy_rp::uart::Uart::new(p.UART0, p.PIN_0, p.PIN_1, irq, tx_dma, rx_dma, uart_config);
+
     // And now we can use it!
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
     let client = TcpClient::new(stack, &state);
@@ -177,7 +182,7 @@ async fn main(spawner: Spawner) {
             if let Err(err) =
                 bridge::read_and_send_entry(&mut mqtt_client, &entry, MQTT_DEVICEID).await
             {
-                error!("Failed to send {:?} message: {:?}", entry.topic, err);
+                error!("Failed to send {:?} message: {}", entry.topic, err);
                 light_led_exception_pattern(&mut control, 3).await;
                 break 'read_loop;
             }
