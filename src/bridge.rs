@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Error, defmt::Format)]
+#[non_exhaustive]
 pub enum ModBusMqttBridgeError {
     #[error("MQTT Error: {0}")]
     MqttError(MqttError),

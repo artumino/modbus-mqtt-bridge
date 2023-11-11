@@ -3,6 +3,7 @@ use thiserror::Error;
 mod rust_mqtt_adapter;
 
 #[derive(Error, Debug, defmt::Format)]
+#[non_exhaustive]
 pub enum MqttError {
     #[error("Send error with reason {0}")]
     SendError(rust_mqtt::packet::v5::reason_codes::ReasonCode),

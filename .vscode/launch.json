@@ -8,9 +8,6 @@
             "type": "probe-rs-debug",
             "request": "launch",
             "name": "probe-rs",
-            "env": {
-                "RUST_LOG": "debug"
-            },
             "cwd": "${workspaceFolder}",
             "connectUnderReset": false,
             "chip": "RP2040",
@@ -21,9 +18,11 @@
             "coreConfigs": [
                 {
                     "coreIndex": 0,
+                    "rttEnabled": true,
                     "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge",
                 }
             ],
+            "consoleLogLevel": "Console", //Info, Debug
             "preLaunchTask": "rust: cargo build"
         }
     ]
