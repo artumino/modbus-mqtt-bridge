@@ -13,7 +13,7 @@ where
 {
     async fn send(&mut self, topic: &str, payload: &[u8]) -> Result<(), MqttError> {
         if let Err(err) = self
-            .send_message(topic, payload, QualityOfService::QoS1, true)
+            .send_message(topic, payload, QualityOfService::QoS1, false)
             .await
         {
             return Err(MqttError::SendError(err));

@@ -113,7 +113,7 @@ where
     T: Read + Write,
 {
     connection: &'a mut T,
-    _t_1_char_us: u64,        // Time to send one character in us
+    t_1_char_us: u64,        // Time to send one character in us
     interframe_delay_us: u64, // Maximum time between frames in us
 }
 
@@ -140,7 +140,7 @@ where
 
         Self {
             connection,
-            _t_1_char_us: t_1_char,
+            t_1_char_us: t_1_char,
             interframe_delay_us: interframe_delay,
         }
     }

@@ -55,7 +55,7 @@ where
             .flush()
             .await
             .map_err(|_| ModbusError::ModbusWriteError)?;
-        //timing::after_duration(Duration::from_micros(self.t_1_char_us)).await;
+        timing::after_duration(Duration::from_micros(self.t_1_char_us)).await;
 
         let mut response = heapless::Vec::<u8, 256>::new();
         read_rtu_frame(&mut response, self.connection, self.interframe_delay_us).await?;
@@ -97,7 +97,7 @@ where
 async fn read_rtu_frame<T, const MAX_SIZE: usize>(
     buf: &mut Vec<u8, MAX_SIZE>,
     connection: &mut T,
-    interframe_time: u64,
+    interframe_time_us: u64,
 ) -> Result<(), ModbusError>
 where
     T: Read + Write,
@@ -106,7 +106,7 @@ where
     loop {
         match select(
             connection.read(&mut buff),
-            timing::after_duration(Duration::from_micros(interframe_time)),
+            timing::after_duration(Duration::from_micros(interframe_time_us * 2)),
         )
         .await
         {
