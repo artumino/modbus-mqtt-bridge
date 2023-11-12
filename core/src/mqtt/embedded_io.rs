@@ -5,7 +5,6 @@ use crate::async_traits::{Read, Write};
 
 use super::{MqttError, MqttSender};
 
-
 impl<T, const N: usize, R> MqttSender for MqttClient<'_, T, N, R>
 where
     T: Read + Write,

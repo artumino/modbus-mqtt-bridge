@@ -1,11 +1,13 @@
-use core::fmt::Write;
 use heapless::String;
 use thiserror::Error;
 
-use crate::{configuration::{Parity, SerialConfiguration}, logging::Format};
+use crate::{
+    async_traits::{Read, Write},
+    configuration::{Parity, SerialConfiguration},
+    logging::Format,
+};
 
-#[cfg(feature = "embedded-io-async")]
-mod embedded_io;
+mod rtu;
 
 pub enum ModbusReadRequestType {
     InputRegister,
@@ -46,6 +48,7 @@ impl ModbusDataType {
     pub fn dump_string<const N: usize>(&self, out: &mut String<N>) -> Result<(), ModbusError> {
         match self {
             ModbusDataType::F32(value) => {
+                use core::fmt::Write;
                 write!(out, "{}", value).map_err(|_| ModbusError::CannotConvertToString(N))
             }
         }
@@ -107,16 +110,16 @@ pub trait ModbusClient {
 
 pub struct ModbusRTUChannel<'a, T>
 where
-    T: embedded_io_async::Read + embedded_io_async::Write,
+    T: Read + Write,
 {
     connection: &'a mut T,
-    t_1_char_us: u64,        // Time to send one character in us
+    t_1_char_us: u64,         // Time to send one character in us
     interframe_delay_us: u64, // Maximum time between frames in us
 }
 
 impl<'a, T> ModbusRTUChannel<'a, T>
 where
-    T: embedded_io_async::Read + embedded_io_async::Write,
+    T: Read + Write,
 {
     pub fn new(connection: &'a mut T, config: &SerialConfiguration) -> Self {
         let t_1_char = ((1_000_000

@@ -1,9 +1,10 @@
 use thiserror::Error;
 
 use crate::{
+    logging::Format,
     modbus::{ModbusClient, ModbusDataType, ModbusError, ModbusReadRequest, ModbusReadRequestType},
     mqtt::{MqttError, MqttSender},
-    registry_map::{RegistryEntry, RegistryType, RegistryValueType}, logging::Format,
+    registry_map::{RegistryEntry, RegistryType, RegistryValueType},
 };
 
 #[cfg(feature = "defmt")]

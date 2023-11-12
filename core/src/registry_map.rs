@@ -67,19 +67,19 @@ impl<'a> RegistryEntry<'a> {
     }
 }
 
-pub struct RegistryMap {
-    lines: Lines<'static>,
+pub struct RegistryMap<'a> {
+    lines: Lines<'a>,
 }
 
-impl RegistryMap {
-    pub fn new(in_memory_map: &'static str) -> RegistryMap {
+impl<'a> RegistryMap<'a> {
+    pub fn new(in_memory_map: &'a str) -> RegistryMap {
         let lines = in_memory_map.lines();
         RegistryMap { lines }
     }
 }
 
-impl Iterator for RegistryMap {
-    type Item = RegistryEntry<'static>;
+impl<'a> Iterator for RegistryMap<'a> {
+    type Item = RegistryEntry<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(line) = self.lines.next() {

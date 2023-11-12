@@ -18,12 +18,12 @@ embedded-io-async = { version = "0.6.0", optional = true }
 
 embassy-time = { version = "0.1.5", git = "https://github.com/embassy-rs/embassy.git", features = ["nightly", "unstable-traits"], default-features = false, optional = true }
 log = { version = "0.4.20", optional = true }
-tokio = { version = "1", features = ["time"], optional = true }
+tokio = { version = "1", features = ["time", "io-util"], optional = true }
 
 [features]
-default = ["std", "embedded-io-async", "tokio"]
+default = ["std", "tokio", "embedded-io-async"]
 embedded-io-async = ["dep:embedded-io-async"]
 embassy = ["embedded-io-async", "dep:embassy-time"]
 defmt = ["dep:defmt", "embedded-io-async?/defmt-03", "rust-mqtt/defmt", "embassy-time?/defmt", "embassy-time?/defmt-timestamp-uptime", "rust-mqtt/no_std"]
-std = ["embedded-io-async", "log", "embassy-time?/std", "embassy-time?/log",  "rust-mqtt/default"]
+std = ["log", "embassy-time?/std", "embassy-time?/log",  "rust-mqtt/default"]
 tokio = ["dep:tokio"]

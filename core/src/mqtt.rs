@@ -16,5 +16,9 @@ pub enum MqttError {
 impl Format for MqttError {}
 
 pub trait MqttSender {
-    fn send(&mut self, topic: &str, payload: &[u8]) -> impl futures::future::Future<Output = Result<(), MqttError>>;
+    fn send(
+        &mut self,
+        topic: &str,
+        payload: &[u8],
+    ) -> impl futures::future::Future<Output = Result<(), MqttError>>;
 }
