@@ -27,6 +27,8 @@ pub struct PcConfiguration<'a> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
+
     let mut configuration_file = File::open("configuration.json").await?;
     let mut configuration_string = String::new();
     AsyncReadExt::read_to_string(&mut configuration_file, &mut configuration_string).await?;
@@ -73,6 +75,8 @@ async fn main() -> Result<()> {
                 error!("Error running bridge: {:?}", e);
             }
         }
+
+        tokio::time::sleep(Duration::from_secs(bridge_configuration.reconnect_delay)).await;
     }
 }
 
