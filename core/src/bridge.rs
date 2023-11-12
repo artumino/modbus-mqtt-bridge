@@ -3,10 +3,17 @@ use thiserror::Error;
 use crate::{
     modbus::{ModbusClient, ModbusDataType, ModbusError, ModbusReadRequest, ModbusReadRequestType},
     mqtt::{MqttError, MqttSender},
-    registry_map::{RegistryEntry, RegistryType, RegistryValueType},
+    registry_map::{RegistryEntry, RegistryType, RegistryValueType}, logging::Format,
 };
 
-#[derive(Debug, Error, defmt::Format)]
+#[cfg(feature = "defmt")]
+use defmt::error;
+
+#[cfg(feature = "log")]
+use log::error;
+
+#[derive(Debug, Error)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum ModBusMqttBridgeError {
     #[error("MQTT Error: {0}")]
@@ -20,6 +27,8 @@ pub enum ModBusMqttBridgeError {
     #[error("Registry parse error")]
     CannotParseRegistry,
 }
+
+impl Format for ModBusMqttBridgeError {}
 
 impl From<MqttError> for ModBusMqttBridgeError {
     fn from(err: MqttError) -> Self {
@@ -85,7 +94,7 @@ where
     {
         Ok(value) => value,
         Err(err) => {
-            defmt::error!("Error reading from modbus: {:?}", err);
+            error!("Error reading from modbus: {:?}", err);
             return Ok(());
         }
     };

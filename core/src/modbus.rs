@@ -2,7 +2,7 @@ use core::fmt::Write;
 use heapless::String;
 use thiserror::Error;
 
-use crate::configuration::{Parity, SerialConfiguration};
+use crate::{configuration::{Parity, SerialConfiguration}, logging::Format};
 
 #[cfg(feature = "embedded-io-async")]
 mod embedded_io;
@@ -12,11 +12,14 @@ pub enum ModbusReadRequestType {
     HoldingRegister,
 }
 
-#[derive(Debug, Clone, Copy, defmt::Format)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum ModbusDataType {
     F32(f32),
 }
+
+impl Format for ModbusDataType {}
 
 impl ModbusDataType {
     pub fn count(&self) -> usize {
@@ -72,7 +75,8 @@ impl ModbusReadRequest {
     }
 }
 
-#[derive(Debug, Error, defmt::Format)]
+#[derive(Debug, Error)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ModbusError {
     #[error("Cannot write read request on modbus")]
     ModbusWriteError,
@@ -91,6 +95,8 @@ pub enum ModbusError {
     #[error("Cannot convert to string of length {0}")]
     CannotConvertToString(usize),
 }
+
+impl Format for ModbusError {}
 
 pub trait ModbusClient {
     fn send_and_read(

@@ -161,12 +161,12 @@ source = "git+https://github.com/embassy-rs/embassy.git#39c737162185adb4f30f18f7
 dependencies = [
  "cfg-if",
  "critical-section",
- "defmt",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0-rc.1",
  "embedded-hal-async",
  "futures-util",
  "heapless 0.8.0",
+ "log",
 ]
 
 [[package]]
@@ -199,9 +199,6 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
-dependencies = [
- "defmt",
-]
 
 [[package]]
 name = "embedded-io-async"
@@ -209,7 +206,6 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de03527d6fb488b2d7c7a4dc81dfb6a657efe264256bfc70bb899746821666b1"
 dependencies = [
- "defmt",
  "embedded-io",
 ]
 
@@ -362,6 +358,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
 
 [[package]]
+name = "itoa"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
+
+[[package]]
 name = "libc"
 version = "0.2.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -454,16 +456,17 @@ dependencies = [
 name = "modbus-mqtt-bridge-core"
 version = "0.1.0"
 dependencies = [
- "defmt",
  "embassy-time",
  "embedded-io-async",
  "futures",
  "heapless 0.7.16",
+ "log",
  "rand_core",
  "rmodbus",
  "rust-mqtt",
  "serde",
  "thiserror-core",
+ "tokio",
 ]
 
 [[package]]
@@ -472,8 +475,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "defmt",
- "embassy-time",
- "embedded-io-async",
  "futures",
  "heapless 0.7.16",
  "modbus-mqtt-bridge-core",
@@ -481,7 +482,7 @@ dependencies = [
  "rmodbus",
  "rust-mqtt",
  "serde",
- "thiserror-core",
+ "serde_json",
  "tokio",
  "tokio-serial",
 ]
@@ -669,10 +670,10 @@ name = "rust-mqtt"
 version = "0.1.5"
 source = "git+https://github.com/sambenko/rust-mqtt.git#9c84777bd75fa857966f3b9f28e4086baa3ce6cd"
 dependencies = [
- "defmt",
  "embedded-io",
  "embedded-io-async",
  "heapless 0.7.16",
+ "log",
  "rand_core",
 ]
 
@@ -690,6 +691,12 @@ checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
  "semver",
 ]
+
+[[package]]
+name = "ryu"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
 
 [[package]]
 name = "scopeguard"
@@ -721,6 +728,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.108"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d1c7e3eac408d115102c4c24ad393e0821bb3a5df4d506a80f85f7a742a526b"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

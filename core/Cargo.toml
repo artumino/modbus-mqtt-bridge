@@ -6,20 +6,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-defmt = "0.3"
+defmt = { version = "0.3", optional = true }
 futures = { version = "0.3.29", default-features = false, features = ["async-await"] }
-rust-mqtt = { git = "https://github.com/sambenko/rust-mqtt.git", features = ["no_std", "defmt"], default-features = false }
+rust-mqtt = { git = "https://github.com/sambenko/rust-mqtt.git", default-features = false }
 rmodbus = { version = "0.7.6", features = ["heapless"], default-features = false }
 rand_core = "0.6.4"
 thiserror = { version = "1.0", package = "thiserror-core", default-features = false }
 serde = { version = "1.0.192", default-features = false, features = ["derive"] }
 heapless = "0.7.16"
-embedded-io-async = { version = "0.6.0", features = ["defmt-03"], optional = true }
+embedded-io-async = { version = "0.6.0", optional = true }
 
-embassy-time = { version = "0.1.5", git = "https://github.com/embassy-rs/embassy.git", features = ["nightly", "unstable-traits", "defmt", "defmt-timestamp-uptime"], optional = true }
+embassy-time = { version = "0.1.5", git = "https://github.com/embassy-rs/embassy.git", features = ["nightly", "unstable-traits"], default-features = false, optional = true }
+log = { version = "0.4.20", optional = true }
+tokio = { version = "1", features = ["time"], optional = true }
 
 [features]
-default = ["std", "embedded-io-async"]
+default = ["std", "embedded-io-async", "tokio"]
 embedded-io-async = ["dep:embedded-io-async"]
 embassy = ["embedded-io-async", "dep:embassy-time"]
-std = ["embedded-io-async", "embassy", "embassy-time/std"]
+defmt = ["dep:defmt", "embedded-io-async?/defmt-03", "rust-mqtt/defmt", "embassy-time?/defmt", "embassy-time?/defmt-timestamp-uptime", "rust-mqtt/no_std"]
+std = ["embedded-io-async", "log", "embassy-time?/std", "embassy-time?/log",  "rust-mqtt/default"]
+tokio = ["dep:tokio"]

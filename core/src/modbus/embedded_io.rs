@@ -1,6 +1,12 @@
 use core::time::Duration;
 
+#[cfg(feature = "defmt")]
 use defmt::error;
+
+#[cfg(feature = "log")]
+use log::error;
+
+use crate::logging::Format;
 use futures::future::Either;
 use heapless::Vec;
 use rmodbus::{self, client::ModbusRequest, ModbusProto};
@@ -22,9 +28,9 @@ impl<'a, T> ModbusClient for ModbusRTUChannel<'a, T>
 where
     T: Read + Write,
     T: embedded_io_async::Read + embedded_io_async::Write,
-    <T as embedded_io_async::ErrorType>::Error: defmt::Format,
-    <T as Read>::Error: defmt::Format,
-    <T as Write>::Error: defmt::Format,
+    <T as embedded_io_async::ErrorType>::Error: Format,
+    <T as Read>::Error: Format,
+    <T as Write>::Error: Format,
 {
     async fn send_and_read(
         &mut self,
@@ -93,8 +99,8 @@ async fn read_rtu_frame<T, const MAX_SIZE: usize>(
 ) -> Result<(), ModbusError>
 where
     T: Read + Write,
-    <T as Read>::Error: defmt::Format,
-    <T as Write>::Error: defmt::Format,
+    <T as Read>::Error: Format,
+    <T as Write>::Error: Format,
 {
     let mut buff = [0u8; 32];
     loop {

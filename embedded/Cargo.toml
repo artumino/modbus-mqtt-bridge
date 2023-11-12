@@ -38,7 +38,7 @@ pio-proc = "0.2"
 pio = "0.2.1"
 
 # Out dependencies
-modbus-mqtt-bridge-core = { path = "../core", features = ["embassy"], default-features = false }
+modbus-mqtt-bridge-core = { path = "../core", features = ["embassy", "defmt"], default-features = false }
 rust-mqtt = { git = "https://github.com/sambenko/rust-mqtt.git", features = ["no_std", "defmt"], default-features = false }
 thiserror = { version = "1.0", package = "thiserror-core", default-features = false }
 serde = { version = "1.0.192", default-features = false, features = ["derive"] }

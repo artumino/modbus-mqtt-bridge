@@ -26,6 +26,8 @@ pub enum RpUartError {
     WriteError(uart::Error),
 }
 
+impl modbus_mqtt_bridge_core::logging::Format for RpUartError {}
+
 impl Error for RpUartError {
     fn kind(&self) -> embedded_io_async::ErrorKind {
         match self {
