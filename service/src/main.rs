@@ -76,7 +76,10 @@ async fn main() -> Result<()> {
             }
         }
 
-        tokio::time::sleep(Duration::from_secs(bridge_configuration.reconnect_delay)).await;
+        tokio::time::sleep(Duration::from_millis(
+            bridge_configuration.reconnect_delay_ms,
+        ))
+        .await;
     }
 }
 
@@ -116,7 +119,7 @@ async fn run_bridge(
 
         if let Err(err) = mqtt_client.connect_to_broker().await {
             error!("Failed to connect to MQTT broker: {:?}", err);
-            tokio::time::sleep(Duration::from_secs(bridge_config.reconnect_delay)).await;
+            tokio::time::sleep(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
             continue 'connection;
         }
 
@@ -127,6 +130,7 @@ async fn run_bridge(
                 &mut mqtt_client,
                 &mut rtu_channel,
                 &entry,
+                bridge_config,
                 bridge_config.mqtt.device_id,
             )
             .await
@@ -134,7 +138,7 @@ async fn run_bridge(
                 error!("Failed to send {:?} message: {}", entry.topic, err);
             }
 
-            if let Some(delay) = bridge_config.inter_request_delay {
+            if let Some(delay) = bridge_config.inter_request_delay_ms {
                 tokio::time::sleep(Duration::from_millis(delay)).await;
             }
         }
@@ -143,6 +147,6 @@ async fn run_bridge(
             error!("Failed to disconnect from MQTT broker: {:?}", err);
         }
 
-        tokio::time::sleep(Duration::from_secs(bridge_config.polling_interval)).await;
+        tokio::time::sleep(Duration::from_millis(bridge_config.polling_interval_ms)).await;
     }
 }

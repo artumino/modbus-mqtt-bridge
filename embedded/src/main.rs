@@ -44,7 +44,7 @@ bind_interrupts!(struct Irqs {
 const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
 const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
 
-const REGISTRY_MAP: &str = include_str!("../assets/maps/registry_map");
+const REGISTRY_MAP: &str = include_str!("../../registry_map");
 const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
 
 #[embassy_executor::task]
@@ -170,7 +170,7 @@ async fn main(spawner: Spawner) {
         control.gpio_set(0, true).await;
         let connection = match select(
             client.connect(mqtt_endpoint),
-            Timer::after(Duration::from_secs(bridge_config.reconnect_delay)),
+            Timer::after(Duration::from_millis(bridge_config.reconnect_delay_ms)),
         )
         .await
         {
@@ -182,14 +182,14 @@ async fn main(spawner: Spawner) {
                 Err(err) => {
                     error!("Failed to connect to MQTT endpoint: {:?}", err);
                     control.gpio_set(0, false).await;
-                    Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
+                    Timer::after(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
                     continue;
                 }
             },
             _ => {
                 error!("Failed to connect to MQTT endpoint: Timeout");
                 control.gpio_set(0, false).await;
-                Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
+                Timer::after(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
                 continue;
             }
         };
@@ -217,7 +217,7 @@ async fn main(spawner: Spawner) {
 
         if let Err(err) = mqtt_client.connect_to_broker().await {
             error!("Failed to connect to MQTT broker: {:?}", err);
-            Timer::after(Duration::from_secs(bridge_config.reconnect_delay)).await;
+            Timer::after(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
             continue 'connection_loop;
         }
 
@@ -230,6 +230,7 @@ async fn main(spawner: Spawner) {
                 &mut mqtt_client,
                 &mut rtu_channel,
                 &entry,
+                &bridge_config,
                 bridge_config.mqtt.device_id,
             )
             .await
@@ -240,7 +241,7 @@ async fn main(spawner: Spawner) {
             }
             control.gpio_set(0, false).await;
 
-            if let Some(delay) = bridge_config.inter_request_delay {
+            if let Some(delay) = bridge_config.inter_request_delay_ms {
                 Timer::after(Duration::from_millis(delay)).await;
             }
         }
@@ -250,7 +251,7 @@ async fn main(spawner: Spawner) {
             error!("Failed to disconnect from MQTT broker: {:?}", err);
         }
 
-        Timer::after(Duration::from_secs(bridge_config.polling_interval)).await;
+        Timer::after(Duration::from_millis(bridge_config.polling_interval_ms)).await;
     }
 }
 

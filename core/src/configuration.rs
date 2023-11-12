@@ -36,6 +36,8 @@ pub struct SerialConfiguration {
     pub data_bits: u8,
     pub parity: Parity,
     pub stop_bits: u8,
+    pub retry_count: Option<u8>,
+    pub retry_delay_ms: Option<u64>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -45,7 +47,7 @@ pub struct Configuration<'a> {
     #[serde(borrow)]
     pub network: NetworkConfiguration<'a>,
     pub serial: SerialConfiguration,
-    pub polling_interval: u64,
-    pub reconnect_delay: u64,
-    pub inter_request_delay: Option<u64>,
+    pub polling_interval_ms: u64,
+    pub reconnect_delay_ms: u64,
+    pub inter_request_delay_ms: Option<u64>,
 }

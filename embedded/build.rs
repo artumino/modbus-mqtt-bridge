@@ -18,7 +18,7 @@ fn main() {
     if !PathBuf::from("assets/configuration.json").exists() {
         File::create("assets/configuration.json")
             .unwrap()
-            .write_all(include_bytes!("assets/configuration.example.json"))
+            .write_all(include_bytes!("../configuration.example.json"))
             .unwrap();
     }
     // Put `memory.x` in our output directory and ensure it's
@@ -36,8 +36,8 @@ fn main() {
     // `memory.x` is changed.
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=\"assets/configuration.json\"");
-    println!("cargo:rerun-if-changed=\"assets/configuration.example.json\"");
-    println!("cargo:rerun-if-changed=\"assets/maps/registry_map\"");
+    println!("cargo:rerun-if-changed=\"../configuration.example.json\"");
+    println!("cargo:rerun-if-changed=\"../registry_map\"");
 
     println!("cargo:rustc-link-arg-bins=--nmagic");
     println!("cargo:rustc-link-arg-bins=-Tlink.x");

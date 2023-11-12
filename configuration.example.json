@@ -5,8 +5,8 @@
         "username":"user1",
         "password":"password1"
     },
-    "polling_interval": 5,
-    "reconnect_delay": 5,
+    "polling_interval_ms": 5000,
+    "reconnect_delay_ms": 5000,
     "network": {
         "name": "NetwoRkName",
         "password": "N3TworkP4ssword"
@@ -17,5 +17,5 @@
         "parity": "N",
         "stop_bits": 1
     },
-    "inter_request_delay": 100
+    "inter_request_delay_ms": 100
 }

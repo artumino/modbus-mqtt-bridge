@@ -1,10 +1,14 @@
+use core::time::Duration;
+
 use thiserror::Error;
 
 use crate::{
+    configuration::Configuration,
     logging::Format,
     modbus::{ModbusClient, ModbusDataType, ModbusError, ModbusReadRequest, ModbusReadRequestType},
     mqtt::{MqttError, MqttSender},
     registry_map::{RegistryEntry, RegistryType, RegistryValueType},
+    timing,
 };
 
 #[cfg(feature = "defmt")]
@@ -78,6 +82,7 @@ pub async fn read_and_send_entry<T, M>(
     mqtt_sender: &mut T,
     modbus_client: &mut M,
     registry_entry: &RegistryEntry<'_>,
+    config: &Configuration<'_>,
     base_topic: &str,
 ) -> Result<(), ModBusMqttBridgeError>
 where
@@ -88,15 +93,27 @@ where
     format_topic(&mut topic, base_topic, registry_entry.topic)?;
 
     let modbus_request = ModbusReadRequest::try_from(registry_entry)?;
-    let value = match modbus_client
-        .send_and_read(&modbus_request)
-        .await
-        .map_err(ModBusMqttBridgeError::ModbusError)
-    {
-        Ok(value) => value,
-        Err(err) => {
-            error!("Error reading from modbus: {:?}", err);
-            return Ok(());
+    let mut retry_count = config.serial.retry_count.unwrap_or(1);
+
+    let value: ModbusDataType = loop {
+        match modbus_client
+            .send_and_read(&modbus_request)
+            .await
+            .map_err(ModBusMqttBridgeError::ModbusError)
+        {
+            Ok(value) => break value,
+            Err(err) => {
+                retry_count -= 1;
+                error!("Modbus error: {:?}", err);
+                if retry_count > 0 {
+                    if let Some(delay) = config.serial.retry_delay_ms {
+                        timing::after_duration(Duration::from_millis(delay)).await;
+                    }
+                    continue;
+                }
+                error!("Error reading {} from modbus: {:?}", topic.as_str(), err);
+                return Ok(());
+            }
         }
     };
 
