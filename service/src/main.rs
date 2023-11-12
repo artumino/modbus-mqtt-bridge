@@ -20,6 +20,7 @@ use tokio_serial::SerialPortBuilder;
 
 #[derive(Deserialize, Debug)]
 pub struct PcConfiguration<'a> {
+    #[serde(flatten)]
     pub bridge: Configuration<'a>,
     pub device_tty: &'a str,
 }
