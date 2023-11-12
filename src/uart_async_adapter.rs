@@ -54,7 +54,7 @@ where
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, RpUartError> {
         match select(
             self.uart_bus.read(buf),
-            Timer::after(Duration::from_secs(2)),
+            Timer::after(Duration::from_millis(250)),
         )
         .await
         {
