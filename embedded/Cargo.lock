@@ -983,7 +983,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f232d6ef707e1956a43342693d2a31e72989554d58299d7a88738cc95b0d35c"
 
 [[package]]
-name = "modbus-mqtt-bridge"
+name = "modbus-mqtt-bridge-core"
+version = "0.1.0"
+dependencies = [
+ "defmt",
+ "embassy-time",
+ "embedded-io-async",
+ "futures",
+ "heapless",
+ "rand_core",
+ "rmodbus",
+ "rust-mqtt",
+ "serde",
+ "thiserror-core",
+]
+
+[[package]]
+name = "modbus-mqtt-bridge-embedded"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
@@ -1008,12 +1024,11 @@ dependencies = [
  "fixed-macro",
  "futures",
  "heapless",
+ "modbus-mqtt-bridge-core",
  "panic-probe",
  "pio",
  "pio-proc",
  "portable-atomic",
- "rand_core",
- "rmodbus",
  "rust-mqtt",
  "serde",
  "serde-json-core",

@@ -1,10 +1,14 @@
+use core::time::Duration;
+
 use defmt::error;
-use embassy_futures::select::{select, Either};
-use embassy_time::Timer;
+use futures::future::Either;
 use heapless::Vec;
 use rmodbus::{self, client::ModbusRequest, ModbusProto};
 
+use crate::async_traits::{Read, Write};
 use crate::modbus::ModbusReadRequestType;
+use crate::tasks::select;
+use crate::timing;
 
 use super::{ModbusClient, ModbusDataType, ModbusError, ModbusRTUChannel, ModbusReadRequest};
 
@@ -16,8 +20,11 @@ impl From<&ModbusReadRequest> for ModbusRequest {
 
 impl<'a, T> ModbusClient for ModbusRTUChannel<'a, T>
 where
+    T: Read + Write,
     T: embedded_io_async::Read + embedded_io_async::Write,
     <T as embedded_io_async::ErrorType>::Error: defmt::Format,
+    <T as Read>::Error: defmt::Format,
+    <T as Write>::Error: defmt::Format,
 {
     async fn send_and_read(
         &mut self,
@@ -45,7 +52,7 @@ where
             .flush()
             .await
             .map_err(|_| ModbusError::ModbusWriteError)?;
-        Timer::after_micros(self.t_1_char_us).await;
+        timing::after_duration(Duration::from_micros(self.t_1_char_us)).await;
 
         let mut response = heapless::Vec::<u8, 256>::new();
         read_rtu_frame(&mut response, self.connection, self.interframe_delay_us).await?;
@@ -85,28 +92,31 @@ async fn read_rtu_frame<T, const MAX_SIZE: usize>(
     interframe_time: u64,
 ) -> Result<(), ModbusError>
 where
-    T: embedded_io_async::Read + embedded_io_async::Write,
-    <T as embedded_io_async::ErrorType>::Error: defmt::Format,
+    T: Read + Write,
+    <T as Read>::Error: defmt::Format,
+    <T as Write>::Error: defmt::Format,
 {
     let mut buff = [0u8; 32];
     loop {
         match select(
             connection.read(&mut buff),
-            Timer::after_micros(interframe_time * 2),
+            timing::after_duration(Duration::from_micros(interframe_time))
         )
         .await
         {
-            Either::First(response) => match response {
-                Ok(size) => {
-                    buf.extend_from_slice(&buff[..size])
-                        .map_err(|_| ModbusError::ModbusReadOverflow)?;
+            Either::Left(response) => {
+                match response {
+                    Ok(size) => {
+                        buf.extend_from_slice(&buff[..size])
+                            .map_err(|_| ModbusError::ModbusReadOverflow)?;
+                    }
+                    Err(err) => {
+                        error!("Got error reading from uart: {:?}", err);
+                        return Err(ModbusError::ModbusReadError);
                 }
-                Err(err) => {
-                    error!("Got error reading from uart: {:?}", err);
-                    return Err(ModbusError::ModbusReadError);
-                }
+            }
             },
-            Either::Second(_) => {
+            Either::Right(_) => {
                 return if !buf.is_empty() {
                     Ok(())
                 } else {

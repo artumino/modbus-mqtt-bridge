@@ -6,16 +6,10 @@
 #![feature(type_alias_impl_trait)]
 #![feature(error_in_core)]
 #![allow(incomplete_features)]
-mod bridge;
-mod configuration;
-mod modbus;
-mod mqtt;
-mod registry_map;
 mod uart_async_adapter;
 
 use core::str::FromStr;
 
-use configuration::Configuration;
 use cyw43::Control;
 use cyw43_pio::PioSpi;
 use defmt::*;
@@ -29,10 +23,14 @@ use embassy_rp::pio::Pio;
 use embassy_rp::{bind_interrupts, pio, uart};
 use embassy_time::{Duration, Timer};
 use embedded_nal_async::{SocketAddr, TcpConnect};
+use modbus_mqtt_bridge_core::bridge;
+use modbus_mqtt_bridge_core::configuration::Configuration;
 
+use modbus_mqtt_bridge_core::configuration::Parity;
+use modbus_mqtt_bridge_core::modbus::ModbusRTUChannel;
+use modbus_mqtt_bridge_core::registry_map::RegistryMap;
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
-
 use rust_mqtt::utils::rng_generator::CountingRng;
 use static_cell::make_static;
 
@@ -65,27 +63,25 @@ async fn net_task(stack: &'static Stack<cyw43::NetDriver<'static>>) -> ! {
     stack.run().await
 }
 
-impl From<&Configuration<'_>> for uart::Config {
-    fn from(config: &Configuration) -> Self {
-        let mut uart_config = uart::Config::default();
-        uart_config.baudrate = config.serial.baud_rate;
-        uart_config.parity = match config.serial.parity {
-            configuration::Parity::Even => uart::Parity::ParityEven,
-            configuration::Parity::Odd => uart::Parity::ParityOdd,
-            _ => uart::Parity::ParityNone,
-        };
-        uart_config.stop_bits = match config.serial.stop_bits {
-            2 => uart::StopBits::STOP2,
-            _ => uart::StopBits::STOP1,
-        };
-        uart_config.data_bits = match config.serial.data_bits {
-            7 => uart::DataBits::DataBits7,
-            6 => uart::DataBits::DataBits6,
-            5 => uart::DataBits::DataBits5,
-            _ => uart::DataBits::DataBits8,
-        };
-        uart_config
-    }
+fn parse_config(config: &Configuration) -> uart::Config {
+    let mut uart_config = uart::Config::default();
+    uart_config.baudrate = config.serial.baud_rate;
+    uart_config.parity = match config.serial.parity {
+        Parity::Even => uart::Parity::ParityEven,
+        Parity::Odd => uart::Parity::ParityOdd,
+        _ => uart::Parity::ParityNone,
+    };
+    uart_config.stop_bits = match config.serial.stop_bits {
+        2 => uart::StopBits::STOP2,
+        _ => uart::StopBits::STOP1,
+    };
+    uart_config.data_bits = match config.serial.data_bits {
+        7 => uart::DataBits::DataBits7,
+        6 => uart::DataBits::DataBits6,
+        5 => uart::DataBits::DataBits5,
+        _ => uart::DataBits::DataBits8,
+    };
+    uart_config
 }
 
 #[embassy_executor::main]
@@ -157,10 +153,10 @@ async fn main(spawner: Spawner) {
         p.PIN_9,
         &mut uart_write_buffer,
         &mut uart_recv_buffer,
-        (&bridge_config).into(),
+        parse_config(&bridge_config),
     );
     let mut rp_uart_bus = uart_async_adapter::RpUartAsyncAdapter::new(uart_bus);
-    let mut rtu_channel = modbus::ModbusRTUChannel::new(&mut rp_uart_bus, &bridge_config.serial);
+    let mut rtu_channel = ModbusRTUChannel::new(&mut rp_uart_bus, &bridge_config.serial);
 
     // And now we can use it!
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
@@ -227,7 +223,7 @@ async fn main(spawner: Spawner) {
 
         info!("Connected to MQTT broker");
 
-        let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
+        let registry_map = RegistryMap::new(REGISTRY_MAP);
         'read_loop: for entry in registry_map {
             control.gpio_set(0, true).await;
             if let Err(err) = bridge::read_and_send_entry(

@@ -1,4 +1,4 @@
-modbus-mqtt-bridge v0.1.0 (/home/artum/ArtumDev/modbus-mqtt-bridge)
+modbus-mqtt-bridge-embedded v0.1.0 (/home/artum/ArtumDev/modbus-mqtt-bridge-embedded)
 ├── cortex-m v0.7.7
 │   ├── bare-metal v0.2.5
 │   │   [build-dependencies]

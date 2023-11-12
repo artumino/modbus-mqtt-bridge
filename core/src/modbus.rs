@@ -4,7 +4,8 @@ use thiserror::Error;
 
 use crate::configuration::{Parity, SerialConfiguration};
 
-mod rmodbus_adapter;
+#[cfg(feature = "embedded-io-async")]
+mod embedded_io;
 
 pub enum ModbusReadRequestType {
     InputRegister,
@@ -92,10 +93,10 @@ pub enum ModbusError {
 }
 
 pub trait ModbusClient {
-    async fn send_and_read(
+    fn send_and_read(
         &mut self,
         request: &ModbusReadRequest,
-    ) -> Result<ModbusDataType, ModbusError>;
+    ) -> impl futures::future::Future<Output = Result<ModbusDataType, ModbusError>>;
 }
 
 pub struct ModbusRTUChannel<'a, T>

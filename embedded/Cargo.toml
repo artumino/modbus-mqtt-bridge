@@ -2,7 +2,7 @@
 authors = ["Jacopo Libè <jacopo.libe@gmail.com>"]
 edition = "2021"
 readme = "README.md"
-name = "modbus-mqtt-bridge"
+name = "modbus-mqtt-bridge-embedded"
 version = "0.1.0"
 
 [dependencies]
@@ -38,16 +38,15 @@ pio-proc = "0.2"
 pio = "0.2.1"
 
 # Out dependencies
+modbus-mqtt-bridge-core = { path = "../core", features = ["embassy"], default-features = false }
 rust-mqtt = { git = "https://github.com/sambenko/rust-mqtt.git", features = ["no_std", "defmt"], default-features = false }
-rmodbus = { version = "0.7.6", features = ["heapless"], default-features = false }
-rand_core = "0.6.4"
 thiserror = { version = "1.0", package = "thiserror-core", default-features = false }
 serde = { version = "1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = "0.5.1"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "modbus-mqtt-bridge"
+name = "modbus-mqtt-bridge-embedded"
 test = false
 bench = false
 

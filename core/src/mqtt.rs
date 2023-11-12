@@ -1,6 +1,7 @@
 use thiserror::Error;
 
-mod rust_mqtt_adapter;
+#[cfg(feature = "embedded-io-async")]
+mod embedded_io;
 
 #[derive(Error, Debug, defmt::Format)]
 #[non_exhaustive]
@@ -10,5 +11,5 @@ pub enum MqttError {
 }
 
 pub trait MqttSender {
-    async fn send(&mut self, topic: &str, payload: &[u8]) -> Result<(), MqttError>;
+    fn send(&mut self, topic: &str, payload: &[u8]) -> impl futures::future::Future<Output = Result<(), MqttError>>;
 }

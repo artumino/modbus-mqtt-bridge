@@ -19,7 +19,7 @@
                 {
                     "coreIndex": 0,
                     "rttEnabled": true,
-                    "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge",
+                    "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge-embedded",
                 }
             ],
             "consoleLogLevel": "Info", //Info, Debug
@@ -36,7 +36,7 @@
                 {
                     "coreIndex": 0,
                     "rttEnabled": true,
-                    "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge",
+                    "programBinary": "./target/thumbv6m-none-eabi/debug/modbus-mqtt-bridge-embedded",
                 }
             ],
             "consoleLogLevel": "Info"
