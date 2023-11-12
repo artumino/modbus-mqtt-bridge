@@ -1,3 +1,4 @@
+use defmt::error;
 use embassy_futures::select::{select, Either};
 use embassy_time::Timer;
 use heapless::Vec;
@@ -16,6 +17,7 @@ impl From<&ModbusReadRequest> for ModbusRequest {
 impl<'a, T> ModbusClient for ModbusRTUChannel<'a, T>
 where
     T: embedded_io_async::Read + embedded_io_async::Write,
+    <T as embedded_io_async::ErrorType>::Error: defmt::Format,
 {
     async fn send_and_read(
         &mut self,
@@ -23,7 +25,6 @@ where
     ) -> Result<ModbusDataType, ModbusError> {
         let mut mreq: ModbusRequest = request.into();
         let count = request.requested_data.count() as u16;
-
         let mut request_data = heapless::Vec::<u8, 256>::new();
         match &request.request_type {
             ModbusReadRequestType::InputRegister => {
@@ -67,10 +68,9 @@ where
         //        .await
         //        .map_err(|_| ModbusError::ModbusReadError)?;
         //}
-
         let result = mreq
             .parse_slice(&response)
-            .map_err(|_| ModbusError::CannotParse)?;
+            .map_err(|_| ModbusError::FrameIntegrityError)?;
 
         request
             .requested_data
@@ -86,6 +86,7 @@ async fn read_rtu_frame<T, const MAX_SIZE: usize>(
 ) -> Result<(), ModbusError>
 where
     T: embedded_io_async::Read + embedded_io_async::Write,
+    <T as embedded_io_async::ErrorType>::Error: defmt::Format,
 {
     let mut buff = [0u8; 32];
     loop {
@@ -100,7 +101,8 @@ where
                     buf.extend_from_slice(&buff[..size])
                         .map_err(|_| ModbusError::ModbusReadOverflow)?;
                 }
-                Err(_) => {
+                Err(err) => {
+                    error!("Got error reading from uart: {:?}", err);
                     return Err(ModbusError::ModbusReadError);
                 }
             },

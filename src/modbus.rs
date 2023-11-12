@@ -85,6 +85,8 @@ pub enum ModbusError {
     ModbusReadTimeout,
     #[error("Parse error")]
     CannotParse,
+    #[error("Underlying frame integrity error")]
+    FrameIntegrityError,
     #[error("Cannot convert to string of length {0}")]
     CannotConvertToString(usize),
 }
@@ -101,7 +103,7 @@ where
     T: embedded_io_async::Read + embedded_io_async::Write,
 {
     connection: &'a mut T,
-    t_1_char_us: u64,         // Time to send one character in us
+    t_1_char_us: u64,        // Time to send one character in us
     interframe_delay_us: u64, // Maximum time between frames in us
 }
 
@@ -110,7 +112,7 @@ where
     T: embedded_io_async::Read + embedded_io_async::Write,
 {
     pub fn new(connection: &'a mut T, config: &SerialConfiguration) -> Self {
-        let t_1_char = (1_000_000
+        let t_1_char = ((1_000_000
             * (config.data_bits
                 + config.stop_bits
                 + match config.parity {
@@ -118,7 +120,8 @@ where
                     _ => 1,
                 }
                 + 2) as u64)
-            / (config.baud_rate as u64);
+            / (config.baud_rate as u64))
+            + 1;
 
         let interframe_delay = match config.baud_rate {
             ..=19200 => (3_500 * t_1_char) / 1_000,

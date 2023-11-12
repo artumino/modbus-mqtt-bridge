@@ -47,4 +47,5 @@ pub struct Configuration<'a> {
     pub serial: SerialConfiguration,
     pub polling_interval: u64,
     pub reconnect_delay: u64,
+    pub inter_request_delay: Option<u64>,
 }

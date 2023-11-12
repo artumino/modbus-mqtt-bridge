@@ -228,8 +228,8 @@ async fn main(spawner: Spawner) {
         info!("Connected to MQTT broker");
 
         let registry_map = registry_map::RegistryMap::new(REGISTRY_MAP);
-        control.gpio_set(0, true).await;
         'read_loop: for entry in registry_map {
+            control.gpio_set(0, true).await;
             if let Err(err) = bridge::read_and_send_entry(
                 &mut mqtt_client,
                 &mut rtu_channel,
@@ -242,7 +242,13 @@ async fn main(spawner: Spawner) {
                 light_led_exception_pattern(&mut control, 3).await;
                 break 'read_loop;
             }
+            control.gpio_set(0, false).await;
+
+            if let Some(delay) = bridge_config.inter_request_delay {
+                Timer::after(Duration::from_millis(delay)).await;
+            }
         }
+
         control.gpio_set(0, false).await;
         if let Err(err) = mqtt_client.disconnect().await {
             error!("Failed to disconnect from MQTT broker: {:?}", err);

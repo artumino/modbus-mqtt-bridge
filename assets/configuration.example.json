@@ -16,5 +16,6 @@
         "data_bits": 8,
         "parity": "N",
         "stop_bits": 1
-    }
+    },
+    "inter_request_delay": 100
 }
