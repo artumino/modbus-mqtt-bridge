@@ -160,7 +160,7 @@ async fn main(spawner: Spawner) {
         (&bridge_config).into(),
     );
     let mut rp_uart_bus = uart_async_adapter::RpUartAsyncAdapter::new(uart_bus);
-    let mut rtu_channel = modbus::ModbusRTUChannel::new(&mut rp_uart_bus);
+    let mut rtu_channel = modbus::ModbusRTUChannel::new(&mut rp_uart_bus, &bridge_config.serial);
 
     // And now we can use it!
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
