@@ -49,7 +49,7 @@ impl ModbusDataType {
         match self {
             ModbusDataType::F32(value) => {
                 use core::fmt::Write;
-                write!(out, "{}", value).map_err(|_| ModbusError::CannotConvertToString(N))
+                write!(out, "{value}").map_err(|_| ModbusError::CannotConvertToString(N))
             }
         }
     }
@@ -113,7 +113,7 @@ where
     T: Read + Write,
 {
     connection: &'a mut T,
-    t_1_char_us: u64,        // Time to send one character in us
+    t_1_char_us: u64,         // Time to send one character in us
     interframe_delay_us: u64, // Maximum time between frames in us
 }
 

@@ -104,7 +104,7 @@ where
             Ok(value) => break value,
             Err(err) => {
                 retry_count -= 1;
-                error!("Modbus error: {:?}", err);
+                error!("Modbus error: {err:?}");
                 if retry_count > 0 {
                     if let Some(delay) = config.serial.retry_delay_ms {
                         timing::after_duration(Duration::from_millis(delay)).await;

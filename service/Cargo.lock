@@ -161,19 +161,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "document-features"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef5282ad69563b5fc40319526ba27e0e7363d552a896f0297d54f767717f9b95"
+dependencies = [
+ "litrs",
+]
+
+[[package]]
 name = "embassy-time"
-version = "0.1.5"
-source = "git+https://github.com/embassy-rs/embassy.git#39c737162185adb4f30f18f700da08a55be6b55a"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9c844070d9f80dc66ee739299183312baee2e1cdeb6e90b4ea2af44f4676da5"
 dependencies = [
  "cfg-if",
  "critical-section",
+ "document-features",
+ "embassy-time-driver",
+ "embassy-time-queue-driver",
  "embedded-hal 0.2.7",
- "embedded-hal 1.0.0-rc.1",
+ "embedded-hal 1.0.0",
  "embedded-hal-async",
  "futures-util",
  "heapless 0.8.0",
  "log",
 ]
+
+[[package]]
+name = "embassy-time-driver"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e0c214077aaa9206958b16411c157961fb7990d4ea628120a78d1a5a28aed24"
+dependencies = [
+ "document-features",
+]
+
+[[package]]
+name = "embassy-time-queue-driver"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1177859559ebf42cd24ae7ba8fe6ee707489b01d0bf471f8827b7b12dcb0bc0"
 
 [[package]]
 name = "embedded-hal"
@@ -187,17 +215,17 @@ dependencies = [
 
 [[package]]
 name = "embedded-hal"
-version = "1.0.0-rc.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2894bc2f0457b8ca3d6b8ab8aad64d9337583672494013457f86c5a9146c0e22"
+checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 
 [[package]]
 name = "embedded-hal-async"
-version = "1.0.0-rc.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a8a3517745342155b3b00895a0f78417a453fb800d97a8bf4777d5720acde9"
+checksum = "0c4c685bbef7fe13c3c6dd4da26841ed3980ef33e841cddfa15ce8a8fb3f1884"
 dependencies = [
- "embedded-hal 1.0.0-rc.1",
+ "embedded-hal 1.0.0",
 ]
 
 [[package]]
@@ -431,6 +459,12 @@ name = "linux-raw-sys"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "969488b55f8ac402214f3f5fd243ebb7206cf82de60d3172994707a4bcc2b829"
+
+[[package]]
+name = "litrs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "lock_api"

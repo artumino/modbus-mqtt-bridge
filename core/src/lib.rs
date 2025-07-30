@@ -1,6 +1,4 @@
 #![no_std]
-#![feature(error_in_core)]
-
 #[cfg(feature = "std")]
 extern crate std;
 
