@@ -1,73 +1,65 @@
 use embassy_rp::uart;
 use embedded_io_async::{Error, ErrorType};
-use thiserror::Error;
+use error_set::error_set;
 
-pub struct RpUartAsyncAdapter<'a, T>
-where
-    T: uart::Instance,
-{
-    uart_bus: uart::BufferedUart<'a, T>,
+pub struct RpUartAsyncAdapter {
+    uart_bus: uart::BufferedUart,
 }
 
-impl<'a, T> RpUartAsyncAdapter<'a, T>
-where
-    T: uart::Instance,
-{
-    pub fn new(uart_bus: uart::BufferedUart<'a, T>) -> Self {
+impl RpUartAsyncAdapter {
+    pub fn new(uart_bus: uart::BufferedUart) -> Self {
         Self { uart_bus }
     }
 }
 
-#[derive(Debug, Error, defmt::Format)]
-pub enum RpUartError {
-    #[error("Read error {0:?}")]
-    ReadError(uart::Error),
-    #[error("Write error {0:?}")]
-    WriteError(uart::Error),
+error_set! {
+    #[derive(defmt::Format)]
+    RpUartError = {
+        #[display("Read error {kind:?}")]
+        ReadError {
+                kind: uart::Error,
+            },
+        #[display("Write error {kind:?}")]
+        WriteError {
+                kind: uart::Error,
+            },
+    };
 }
-
-impl modbus_mqtt_bridge_core::logging::Format for RpUartError {}
 
 impl Error for RpUartError {
     fn kind(&self) -> embedded_io_async::ErrorKind {
         match self {
-            RpUartError::ReadError(err) => err.kind(),
-            RpUartError::WriteError(err) => err.kind(),
+            RpUartError::ReadError { kind } => kind.kind(),
+            RpUartError::WriteError { kind } => kind.kind(),
         }
     }
 }
 
-impl<'a, T> ErrorType for RpUartAsyncAdapter<'a, T>
-where
-    T: uart::Instance,
-{
+impl ErrorType for RpUartAsyncAdapter {
     type Error = RpUartError;
 }
 
-impl<'a, T> embedded_io_async::Read for RpUartAsyncAdapter<'a, T>
-where
-    T: uart::Instance,
-{
+impl embedded_io_async::Read for RpUartAsyncAdapter {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, RpUartError> {
         self.uart_bus
             .read(buf)
             .await
-            .map_err(RpUartError::ReadError)
+            .map_err(|err| RpUartError::ReadError { kind: err })
     }
 }
 
-impl<'a, T> embedded_io_async::Write for RpUartAsyncAdapter<'a, T>
-where
-    T: uart::Instance,
-{
+impl embedded_io_async::Write for RpUartAsyncAdapter {
     async fn write(&mut self, buf: &[u8]) -> Result<usize, RpUartError> {
         self.uart_bus
             .write(buf)
             .await
-            .map_err(RpUartError::WriteError)
+            .map_err(|err| RpUartError::WriteError { kind: err })
     }
 
     async fn flush(&mut self) -> Result<(), RpUartError> {
-        self.uart_bus.flush().await.map_err(RpUartError::WriteError)
+        self.uart_bus
+            .flush()
+            .await
+            .map_err(|err| RpUartError::WriteError { kind: err })
     }
 }

@@ -1,10 +1,9 @@
+use error_set::error_set;
 use heapless::String;
-use thiserror::Error;
 
 use crate::{
     async_traits::{Read, Write},
     configuration::{Parity, SerialConfiguration},
-    logging::Format,
 };
 
 mod rtu;
@@ -20,8 +19,6 @@ pub enum ModbusReadRequestType {
 pub enum ModbusDataType {
     F32(f32),
 }
-
-impl Format for ModbusDataType {}
 
 impl ModbusDataType {
     pub fn count(&self) -> usize {
@@ -49,7 +46,8 @@ impl ModbusDataType {
         match self {
             ModbusDataType::F32(value) => {
                 use core::fmt::Write;
-                write!(out, "{value}").map_err(|_| ModbusError::CannotConvertToString(N))
+                write!(out, "{value}")
+                    .map_err(|_| ModbusError::CannotConvertToString { string_length: N })
             }
         }
     }
@@ -78,28 +76,29 @@ impl ModbusReadRequest {
     }
 }
 
-#[derive(Debug, Error)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum ModbusError {
-    #[error("Cannot write read request on modbus")]
-    ModbusWriteError,
-    #[error("Cannot build request")]
-    CannotBuildRequest,
-    #[error("Read error")]
-    ModbusReadError,
-    #[error("Read overflow")]
-    ModbusReadOverflow,
-    #[error("Read timedout")]
-    ModbusReadTimeout,
-    #[error("Parse error")]
-    CannotParse,
-    #[error("Underlying frame integrity error")]
-    FrameIntegrityError,
-    #[error("Cannot convert to string of length {0}")]
-    CannotConvertToString(usize),
+error_set! {
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    ModbusError = {
+       #[display("Cannot write read request on modbus")]
+       ModbusWriteError,
+       #[display("Cannot build request")]
+       CannotBuildRequest,
+       #[display("Read error")]
+       ModbusReadError,
+       #[display("Read overflow")]
+       ModbusReadOverflow,
+       #[display("Read timedout")]
+       ModbusReadTimeout,
+       #[display("Parse error")]
+       CannotParse,
+       #[display("Underlying frame integrity error")]
+       FrameIntegrityError,
+       #[display("Cannot convert to string of length {string_length}")]
+       CannotConvertToString {
+           string_length: usize,
+       },
+    };
 }
-
-impl Format for ModbusError {}
 
 pub trait ModbusClient {
     fn send_and_read(

@@ -10,7 +10,7 @@ use log::error;
 use futures::future::Either;
 use heapless::Vec;
 //use rmodbus::guess_response_frame_len;
-use rmodbus::{self, client::ModbusRequest, ModbusProto};
+use rmodbus::{self, ModbusProto, client::ModbusRequest};
 
 use crate::async_traits::{Flush, Read, ReadExact, Write};
 use crate::modbus::ModbusReadRequestType;

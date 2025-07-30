@@ -3,26 +3,25 @@
 
 #![no_std]
 #![no_main]
-#![feature(type_alias_impl_trait)]
-#![feature(error_in_core)]
 #![allow(incomplete_features)]
 mod uart_async_adapter;
 
+use core::net::SocketAddr;
 use core::str::FromStr;
 
-use cyw43::Control;
-use cyw43_pio::PioSpi;
+use cyw43::{Control, JoinOptions};
+use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
-use embassy_net::{Config, Stack, StackResources};
+use embassy_net::{Config, StackResources};
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, UART1};
+use embassy_rp::peripherals::{DMA_CH0, PIO0, UART1};
 use embassy_rp::pio::Pio;
 use embassy_rp::{bind_interrupts, pio, uart};
 use embassy_time::{Duration, Timer};
-use embedded_nal_async::{SocketAddr, TcpConnect};
+use embedded_nal_async::TcpConnect;
 use modbus_mqtt_bridge_core::bridge;
 use modbus_mqtt_bridge_core::configuration::Configuration;
 
@@ -32,8 +31,7 @@ use modbus_mqtt_bridge_core::registry_map::RegistryMap;
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
 use rust_mqtt::utils::rng_generator::CountingRng;
-use static_cell::make_static;
-
+use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -49,18 +47,14 @@ const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
 
 #[embassy_executor::task]
 async fn wifi_task(
-    runner: cyw43::Runner<
-        'static,
-        Output<'static, PIN_23>,
-        PioSpi<'static, PIN_25, PIO0, 0, DMA_CH0>,
-    >,
+    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
 ) -> ! {
     runner.run().await
 }
 
 #[embassy_executor::task]
-async fn net_task(stack: &'static Stack<cyw43::NetDriver<'static>>) -> ! {
-    stack.run().await
+async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
+    runner.run().await
 }
 
 fn parse_config(config: &Configuration) -> uart::Config {
@@ -99,6 +93,7 @@ async fn main(spawner: Spawner) {
     let spi = PioSpi::new(
         &mut pio.common,
         pio.sm0,
+        DEFAULT_CLOCK_DIVIDER,
         pio.irq0,
         cs,
         p.PIN_24,
@@ -106,7 +101,8 @@ async fn main(spawner: Spawner) {
         p.DMA_CH0,
     );
 
-    let state = make_static!(cyw43::State::new());
+    static STATE: StaticCell<cyw43::State> = StaticCell::new();
+    let state = STATE.init(cyw43::State::new());
     let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, WIFI_FIRMWARE).await;
     unwrap!(spawner.spawn(wifi_task(runner)));
 
@@ -121,36 +117,40 @@ async fn main(spawner: Spawner) {
     let seed = 0x0123_4567_89ab_cdef; // chosen by fair dice roll. guarenteed to be random.
 
     // Init network stack
-    let stack = &*make_static!(Stack::new(
+    static RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
+    let (stack, runner) = embassy_net::new(
         net_device,
         config,
-        make_static!(StackResources::<2>::new()),
-        seed
-    ));
+        RESOURCES.init(StackResources::new()),
+        seed,
+    );
 
-    unwrap!(spawner.spawn(net_task(stack)));
+    unwrap!(spawner.spawn(net_task(runner)));
 
-    loop {
-        //control.join_open(WIFI_NETWORK).await;
-        match control
-            .join_wpa2(bridge_config.network.name, bridge_config.network.password)
-            .await
-        {
-            Ok(_) => break,
-            Err(err) => {
-                info!("join failed with status={}", err.status);
-            }
-        }
+    while let Err(err) = control
+        .join(
+            bridge_config.network.name,
+            JoinOptions::new(bridge_config.network.password.as_bytes()),
+        )
+        .await
+    {
+        info!("join failed with status={}", err.status);
     }
+
+    info!("waiting for link...");
+    stack.wait_link_up().await;
+
+    info!("waiting for DHCP...");
+    stack.wait_config_up().await;
 
     //Init uart connection
     let mut uart_recv_buffer = [0u8; 256];
     let mut uart_write_buffer = [0u8; 256];
     let uart_bus = uart::BufferedUart::new(
         p.UART1,
-        Irqs,
         p.PIN_8,
         p.PIN_9,
+        Irqs,
         &mut uart_write_buffer,
         &mut uart_recv_buffer,
         parse_config(&bridge_config),

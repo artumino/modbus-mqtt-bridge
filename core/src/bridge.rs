@@ -1,44 +1,37 @@
 use core::time::Duration;
 
-use thiserror::Error;
-
 use crate::{
     configuration::Configuration,
-    logging::Format,
     modbus::{ModbusClient, ModbusDataType, ModbusError, ModbusReadRequest, ModbusReadRequestType},
     mqtt::{MqttError, MqttSender},
     registry_map::{RegistryEntry, RegistryType, RegistryValueType},
     timing,
 };
-
 #[cfg(feature = "defmt")]
 use defmt::error;
-
+use error_set::error_set;
 #[cfg(feature = "log")]
 use log::error;
 
-#[derive(Debug, Error)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[non_exhaustive]
-pub enum ModBusMqttBridgeError {
-    #[error("MQTT Error: {0}")]
-    MqttError(MqttError),
-    #[error("Modbus error with reason {0}")]
-    ModbusError(ModbusError),
-    #[error("Cannot convert to string of length {0}")]
-    CannotConvertToString(usize),
-    #[error("Error formatting topic, check that all topics are of max length {0}<{1}")]
-    TopicOverflow(usize, usize),
-    #[error("Registry parse error")]
-    CannotParseRegistry,
-}
-
-impl Format for ModBusMqttBridgeError {}
-
-impl From<MqttError> for ModBusMqttBridgeError {
-    fn from(err: MqttError) -> Self {
-        Self::MqttError(err)
-    }
+error_set! {
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    ModBusMqttBridgeError = {
+        #[display("MQTT Error: {0}")]
+        MqttError(MqttError),
+        #[display("Modbus error with reason {0}")]
+        ModbusError(ModbusError),
+        #[display("Cannot convert to string of length {string_length}")]
+        CannotConvertToString {
+            string_length: usize,
+        },
+        #[display("Error formatting topic, check that all topics are of max length {expected_size}<{max_size}")]
+        TopicOverflow {
+            expected_size: usize,
+            max_size: usize,
+        },
+        #[display("Registry parse error")]
+        CannotParseRegistry,
+    };
 }
 
 fn format_topic<const N: usize>(
@@ -49,13 +42,22 @@ fn format_topic<const N: usize>(
     let expected_size = base_topic.len() + specific_topic.len() + 1;
     topic
         .push_str(base_topic)
-        .map_err(|_| ModBusMqttBridgeError::TopicOverflow(expected_size, N))?;
+        .map_err(|_| ModBusMqttBridgeError::TopicOverflow {
+            expected_size,
+            max_size: N,
+        })?;
     topic
         .push('/')
-        .map_err(|_| ModBusMqttBridgeError::TopicOverflow(expected_size, N))?;
+        .map_err(|_| ModBusMqttBridgeError::TopicOverflow {
+            expected_size,
+            max_size: N,
+        })?;
     topic
         .push_str(specific_topic)
-        .map_err(|_| ModBusMqttBridgeError::TopicOverflow(expected_size, N))?;
+        .map_err(|_| ModBusMqttBridgeError::TopicOverflow {
+            expected_size,
+            max_size: N,
+        })?;
     Ok(())
 }
 
@@ -104,14 +106,14 @@ where
             Ok(value) => break value,
             Err(err) => {
                 retry_count -= 1;
-                error!("Modbus error: {err:?}");
+                error!("Modbus error {}", err);
                 if retry_count > 0 {
                     if let Some(delay) = config.serial.retry_delay_ms {
                         timing::after_duration(Duration::from_millis(delay)).await;
                     }
                     continue;
                 }
-                error!("Error reading {} from modbus: {:?}", topic.as_str(), err);
+                error!("Error reading {} from modbus: {}", topic.as_str(), err);
                 return Ok(());
             }
         }
@@ -120,7 +122,9 @@ where
     let mut payload = heapless::String::<32>::new();
     value
         .dump_string(&mut payload)
-        .map_err(|_| ModBusMqttBridgeError::CannotConvertToString(32))?;
+        .map_err(|_| ModBusMqttBridgeError::CannotConvertToString {
+            string_length: payload.capacity(),
+        })?;
 
     mqtt_sender.send(topic.as_str(), payload.as_bytes()).await?;
     Ok(())

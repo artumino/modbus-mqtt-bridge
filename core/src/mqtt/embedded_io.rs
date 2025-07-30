@@ -15,7 +15,7 @@ where
             .send_message(topic, payload, QualityOfService::QoS1, false)
             .await
         {
-            return Err(MqttError::SendError(err));
+            return Err(MqttError::SendError { reason_code: err });
         }
         Ok(())
     }
