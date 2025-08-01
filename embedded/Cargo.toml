@@ -5,7 +5,7 @@ name = "modbus-mqtt-bridge-embedded"
 version = "0.1.0"
 
 [dependencies]
-embassy-executor = { version = "0.7.0", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embassy-executor = { version = "0.7.0", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "task-arena-size-65536"] }
 embassy-time = { version = "0.4.0", features = ["defmt", "defmt-timestamp-uptime"] }
 embassy-rp = { version = "0.6.0", features = ["defmt", "time-driver", "critical-section-impl", "rp2040"] }
 embassy-net = { version = "0.7.0", features = ["defmt", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
@@ -30,7 +30,7 @@ cortex-m-rt = "0.7.5"
 # Out dependencies
 modbus-mqtt-bridge-core = { path = "../core", features = ["embassy"], default-features = false }
 rust-mqtt = { version = "0.3.0", features = ["no_std", "defmt"], default-features = false }
-serde-json-core = "0.6.0"
+serde-json-core = { version = "0.6.0", features = ["defmt", "custom-error-messages"] }
 
 # this lets you use `cargo fix`!
 [[bin]]

@@ -80,10 +80,14 @@ fn parse_config(config: &Configuration) -> uart::Config {
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    info!("Booting phonometer...");
+    info!("Booting...");
 
-    let (bridge_config, _) =
-        serde_json_core::from_str::<Configuration>(CONFIGURATION_FILE).unwrap();
+    let try_parse_config = serde_json_core::from_str::<Configuration>(CONFIGURATION_FILE);
+    if let Err(err) = try_parse_config {
+        error!("Failed to parse configuration: {}", err);
+        return;
+    }
+    let (bridge_config, _) = try_parse_config.unwrap();
 
     let p = embassy_rp::init(Default::default());
 
