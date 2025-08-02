@@ -26,11 +26,11 @@ where
         match &request.request_type {
             ModbusReadRequestType::InputRegister => {
                 mreq.generate_get_inputs(request.address, count, &mut request_data)
-                    .map_err(|_| ModbusError::CannotBuildRequest)?;
+                    .map_err(ModbusError::CannotBuildRequest)?;
             }
             ModbusReadRequestType::HoldingRegister => {
                 mreq.generate_get_holdings(request.address, count, &mut request_data)
-                    .map_err(|_| ModbusError::CannotBuildRequest)?;
+                    .map_err(ModbusError::CannotBuildRequest)?;
             }
         }
 
@@ -44,7 +44,7 @@ where
         let mut buf = [0u8; 6];
         self.connection.read_exact(&mut buf).await.map_err(|_| ModbusError::ModbusReadError)?;
         response.extend_from_slice(&buf).map_err(|_| ModbusError::ModbusReadOverflow)?;
-        let len = guess_response_frame_len(&buf, ModbusProto::Rtu).map_err(|_| ModbusError::FrameIntegrityError)?;
+        let len = guess_response_frame_len(&buf, ModbusProto::Rtu).map_err(ModbusError::HeaderIntegrityError)?;
         if len > 6 {
             self.connection.read_exact(&mut response[6..])
                 .await
@@ -53,7 +53,7 @@ where
 
         let result = mreq
             .parse_slice(&response)
-            .map_err(|_| ModbusError::FrameIntegrityError)?;
+            .map_err(ModbusError::FrameIntegrityError)?;
 
         request
             .requested_data

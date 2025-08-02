@@ -22,7 +22,7 @@ tokio = { version = "1", features = ["time", "io-util"], optional = true }
 default = ["std", "tokio", "embedded-io-async"]
 embedded-io-async = ["dep:embedded-io-async"]
 embassy = ["embedded-io-async", "rust-mqtt/no_std", "defmt"]
-defmt = ["dep:defmt", "embedded-io-async?/defmt-03", "rust-mqtt/defmt", "embassy-time/defmt", "embassy-time/defmt-timestamp-uptime", "error_set/defmt"]
+defmt = ["dep:defmt", "embedded-io-async?/defmt-03", "rust-mqtt/defmt", "embassy-time/defmt", "embassy-time/defmt-timestamp-uptime", "error_set/defmt", "rmodbus/defmt"]
 log = ["dep:log", "rust-mqtt/log", "embassy-time/log", "error_set/log"]
 std = ["log", "embassy-time/std",  "rust-mqtt/default"]
 tokio = ["dep:tokio"]

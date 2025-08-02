@@ -1,6 +1,6 @@
 use error_set::error_set;
 use heapless::String;
-
+use rmodbus::ErrorKind;
 use crate::{
     async_traits::{Read, Write},
 };
@@ -80,8 +80,8 @@ error_set! {
     ModbusError = {
        #[display("Cannot write read request on modbus")]
        ModbusWriteError,
-       #[display("Cannot build request")]
-       CannotBuildRequest,
+       #[display("Cannot build request: {0}")]
+       CannotBuildRequest(ErrorKind),
        #[display("Read error")]
        ModbusReadError,
        #[display("Read overflow")]
@@ -90,8 +90,10 @@ error_set! {
        ModbusReadTimeout,
        #[display("Parse error")]
        CannotParse,
-       #[display("Underlying frame integrity error")]
-       FrameIntegrityError,
+       #[display("Underlying frame integrity error of kind: {0}")]
+       FrameIntegrityError(ErrorKind),
+       #[display("Error in header integrity check: {0}")]
+       HeaderIntegrityError(ErrorKind),
        #[display("Cannot convert to string of length {string_length}")]
        CannotConvertToString {
            string_length: usize,
