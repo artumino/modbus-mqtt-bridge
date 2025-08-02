@@ -657,6 +657,7 @@ dependencies = [
  "embassy-time",
  "embedded-io-async",
  "error_set",
+ "futures",
  "heapless",
  "log",
  "rand_core",

@@ -1,8 +1,16 @@
 use heapless::Vec;
-use rmodbus::{self, ModbusProto, client::ModbusRequest, guess_response_frame_len};
+use rmodbus::{self, ModbusProto, client::ModbusRequest};
 
+#[cfg(feature = "defmt")]
+use defmt::error;
+
+#[cfg(feature = "log")]
+use log::error;
+
+use futures::future::Either;
 use crate::async_traits::{Flush, Read, ReadExact, Write};
 use crate::modbus::ModbusReadRequestType;
+use crate::tasks::select;
 
 use super::{ModbusClient, ModbusDataType, ModbusError, ModbusRTUChannel, ModbusReadRequest};
 
@@ -41,15 +49,10 @@ where
 
 
         let mut response = Vec::<u8, 256>::new();
-        let mut buf = [0u8; 6];
-        self.connection.read_exact(&mut buf).await.map_err(|_| ModbusError::ModbusReadError)?;
-        response.extend_from_slice(&buf).map_err(|_| ModbusError::ModbusReadOverflow)?;
-        let len = guess_response_frame_len(&buf, ModbusProto::Rtu).map_err(ModbusError::HeaderIntegrityError)?;
-        if len > 6 {
-            self.connection.read_exact(&mut response[6..])
-                .await
-                .map_err(|_| ModbusError::ModbusReadError)?;
-        }
+        read_rtu_frame(&mut response, self.connection, self.interframe_delay_us)
+            .await
+            .map_err(|_| ModbusError::ModbusReadError)?;
+        
 
         let result = mreq
             .parse_slice(&response)
@@ -59,5 +62,46 @@ where
             .requested_data
             .try_parse(result)
             .map_err(|_| ModbusError::CannotParse)
+    }
+}
+
+async fn read_rtu_frame<T, const MAX_SIZE: usize>(
+    buf: &mut Vec<u8, MAX_SIZE>,
+    connection: &mut T,
+    max_interframe_us: u64
+) -> Result<(), ModbusError>
+where
+    T: Read + Write,
+{
+    use crate::timing::after_duration;
+    use core::time::Duration;
+    let mut buff = [0u8; 32];
+
+    loop {
+        after_duration(Duration::from_micros(max_interframe_us)).await;
+        match select(
+            connection.read(&mut buff),
+            after_duration(Duration::from_micros(max_interframe_us))
+        )
+        .await
+        {
+            Either::Left(response) => match response {
+                Ok(size) => {
+                    buf.extend_from_slice(&buff[..size])
+                        .map_err(|_| ModbusError::ModbusReadOverflow)?;
+                }
+                Err(_) => {
+                    error!("Got error reading from uart");
+                    return Err(ModbusError::ModbusReadError);
+                }
+            },
+            Either::Right(_) => {
+                return if !buf.is_empty() {
+                    Ok(())
+                } else {
+                    Err(ModbusError::ModbusReadTimeout)
+                };
+            }
+        };
     }
 }

@@ -9,6 +9,7 @@ pub mod modbus;
 pub mod registry_map;
 
 mod mqtt;
+mod tasks;
 mod timing;
 
 #[cfg(feature = "log")]

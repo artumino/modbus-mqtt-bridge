@@ -3,6 +3,7 @@ use heapless::String;
 use rmodbus::ErrorKind;
 use crate::{
     async_traits::{Read, Write},
+    configuration::{Parity, SerialConfiguration},
 };
 
 mod rtu;
@@ -112,16 +113,26 @@ pub struct ModbusRTUChannel<'a, T>
 where
     T: Read + Write,
 {
-    connection: &'a mut T
+    connection: &'a mut T,
+    interframe_delay_us: u64, // Maximum time between frames in us
 }
 
 impl<'a, T> ModbusRTUChannel<'a, T>
 where
     T: Read + Write,
 {
-    pub fn new(connection: &'a mut T) -> Self {
+    pub fn new(connection: &'a mut T, config: &SerialConfiguration) -> Self {
+        let bits = config.data_bits as u64 + config.stop_bits as u64 + match config.parity {
+            Parity::None => 0,
+            _ => 1,
+        } as u64;
+
         Self {
-            connection
+            connection,
+            interframe_delay_us: match config.baud_rate > 19200 {
+                true => 1750,
+                _ => (3_500_000 * bits) / config.baud_rate as u64,
+            },
         }
     }
 }
