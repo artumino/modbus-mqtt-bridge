@@ -6,7 +6,6 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 defmt = { version = "1.0", optional = true }
-futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
 rust-mqtt = { version = "0.3.0", default-features = false }
 rmodbus = { version = "0.10.2", features = ["heapless"], default-features = false }
 rand_core = "0.6.4"

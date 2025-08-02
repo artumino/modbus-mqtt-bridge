@@ -991,7 +991,6 @@ dependencies = [
  "embassy-time",
  "embedded-io-async",
  "error_set",
- "futures",
  "heapless",
  "rand_core 0.6.4",
  "rmodbus",

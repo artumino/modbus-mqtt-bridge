@@ -3,7 +3,6 @@ use heapless::String;
 
 use crate::{
     async_traits::{Read, Write},
-    configuration::{Parity, SerialConfiguration},
 };
 
 mod rtu;
@@ -87,7 +86,7 @@ error_set! {
        ModbusReadError,
        #[display("Read overflow")]
        ModbusReadOverflow,
-       #[display("Read timedout")]
+       #[display("Read timeout")]
        ModbusReadTimeout,
        #[display("Parse error")]
        CannotParse,
@@ -104,43 +103,23 @@ pub trait ModbusClient {
     fn send_and_read(
         &mut self,
         request: &ModbusReadRequest,
-    ) -> impl futures::future::Future<Output = Result<ModbusDataType, ModbusError>>;
+    ) -> impl Future<Output = Result<ModbusDataType, ModbusError>>;
 }
 
 pub struct ModbusRTUChannel<'a, T>
 where
     T: Read + Write,
 {
-    connection: &'a mut T,
-    t_1_char_us: u64,         // Time to send one character in us
-    interframe_delay_us: u64, // Maximum time between frames in us
+    connection: &'a mut T
 }
 
 impl<'a, T> ModbusRTUChannel<'a, T>
 where
     T: Read + Write,
 {
-    pub fn new(connection: &'a mut T, config: &SerialConfiguration) -> Self {
-        let t_1_char = ((1_000_000
-            * (config.data_bits
-                + config.stop_bits
-                + match config.parity {
-                    Parity::None => 0,
-                    _ => 1,
-                }
-                + 2) as u64)
-            / (config.baud_rate as u64))
-            + 1;
-
-        let interframe_delay = match config.baud_rate {
-            ..=19200 => (3_500 * t_1_char) / 1_000,
-            _ => 1750,
-        };
-
+    pub fn new(connection: &'a mut T) -> Self {
         Self {
-            connection,
-            t_1_char_us: t_1_char,
-            interframe_delay_us: interframe_delay,
+            connection
         }
     }
 }

@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
         2 => tokio_serial::StopBits::Two,
         _ => tokio_serial::StopBits::One,
     })
-    .timeout(std::time::Duration::from_millis(10));
+    .timeout(Duration::from_millis(10));
 
     loop {
         match run_bridge(
@@ -91,7 +91,7 @@ async fn run_bridge(
     'connection: loop {
         let registry_map = RegistryMap::new(registry_map_str);
         let mut serial_stream = FromTokio::new(tokio_serial::SerialStream::open(port_builder)?);
-        let mut rtu_channel = ModbusRTUChannel::new(&mut serial_stream, &bridge_config.serial);
+        let mut rtu_channel = ModbusRTUChannel::new(&mut serial_stream);
         let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint)?;
         let tpc_stream = FromTokio::new(tokio::net::TcpStream::connect(mqtt_endpoint).await?);
 

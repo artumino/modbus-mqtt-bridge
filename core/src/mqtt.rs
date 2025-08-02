@@ -18,5 +18,5 @@ pub trait MqttSender {
         &mut self,
         topic: &str,
         payload: &[u8],
-    ) -> impl futures::future::Future<Output = Result<(), MqttError>>;
+    ) -> impl Future<Output = Result<(), MqttError>>;
 }
