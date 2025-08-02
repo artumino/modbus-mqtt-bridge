@@ -3,7 +3,7 @@ use rmodbus::{self, ModbusProto, client::ModbusRequest};
 
 #[cfg(feature = "defmt")]
 use defmt::error;
-
+use defmt::info;
 #[cfg(feature = "log")]
 use log::error;
 
@@ -41,6 +41,7 @@ where
                     .map_err(ModbusError::CannotBuildRequest)?;
             }
         }
+        info!("Request data: {:?}", request_data);
 
         self.connection
             .write(&request_data)

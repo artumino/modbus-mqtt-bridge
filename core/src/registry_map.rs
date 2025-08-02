@@ -6,6 +6,7 @@ pub enum RegistryType {
 }
 
 #[non_exhaustive]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RegistryValueType {
     Float32,
     Unsigned8,

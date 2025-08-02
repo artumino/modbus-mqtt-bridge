@@ -42,7 +42,7 @@ bind_interrupts!(struct Irqs {
 const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
 const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
 
-const REGISTRY_MAP: &str = include_str!("../../registry_map");
+const REGISTRY_MAP: &str = include_str!("../assets/registry_map");
 const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
 
 #[embassy_executor::task]
@@ -230,6 +230,7 @@ async fn main(spawner: Spawner) {
         let registry_map = RegistryMap::new(REGISTRY_MAP);
         'read_loop: for entry in registry_map {
             control.gpio_set(0, true).await;
+            info!("Reading entry topic={} at address={} of type={}", entry.topic, entry.address, entry.reg_value_type);
             if let Err(err) = bridge::read_and_send_entry(
                 &mut mqtt_client,
                 &mut rtu_channel,
