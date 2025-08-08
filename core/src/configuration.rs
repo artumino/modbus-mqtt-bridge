@@ -38,6 +38,7 @@ pub struct SerialConfiguration {
     pub stop_bits: u8,
     pub retry_count: Option<u8>,
     pub retry_delay_ms: Option<u64>,
+    pub first_bit_variance: Option<u8>
 }
 
 #[derive(Deserialize, Debug)]

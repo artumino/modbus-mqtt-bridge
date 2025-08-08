@@ -2,13 +2,13 @@ use heapless::Vec;
 use rmodbus::{self, ModbusProto, client::ModbusRequest};
 
 #[cfg(feature = "defmt")]
-use defmt::error;
-use defmt::info;
+use defmt::{error, info};
+use embedded_io_async::Write;
 #[cfg(feature = "log")]
-use log::error;
+use log::{error, info};
 
 use futures::future::Either;
-use crate::async_traits::{Flush, Read, ReadExact, Write};
+use crate::async_traits::{Flush, Read, ReadExact};
 use crate::modbus::ModbusReadRequestType;
 use crate::tasks::select;
 
@@ -31,6 +31,12 @@ where
         let mut mreq: ModbusRequest = request.into();
         let count = request.requested_data.count() as u16;
         let mut request_data = Vec::<u8, 256>::new();
+
+        // Ensure empty buffer
+        let _ignore_buffer = read_rtu_frame(&mut request_data, self.connection, self.interframe_delay_us, 1)
+            .await;
+        request_data.clear();
+
         match &request.request_type {
             ModbusReadRequestType::InputRegister => {
                 mreq.generate_get_inputs(request.address, count, &mut request_data)
@@ -44,15 +50,14 @@ where
         info!("Request data: {:?}", request_data);
 
         self.connection
-            .write(&request_data)
+            .write_all(&request_data)
             .await
             .map_err(|_| ModbusError::ModbusWriteError)?;
-
+        embedded_io_async::Write::flush(self.connection).await.map_err(|_| ModbusError::ModbusWriteError)?;
 
         let mut response = Vec::<u8, 256>::new();
-        read_rtu_frame(&mut response, self.connection, self.interframe_delay_us)
-            .await
-            .map_err(|_| ModbusError::ModbusReadError)?;
+        read_rtu_frame(&mut response, self.connection, self.interframe_delay_us, self.first_bit_variance)
+            .await?;
         
 
         let result = mreq
@@ -69,7 +74,8 @@ where
 async fn read_rtu_frame<T, const MAX_SIZE: usize>(
     buf: &mut Vec<u8, MAX_SIZE>,
     connection: &mut T,
-    max_interframe_us: u64
+    max_interframe_us: u64,
+    first_bit_variance: u8,
 ) -> Result<(), ModbusError>
 where
     T: Read + Write,
@@ -77,12 +83,15 @@ where
     use crate::timing::after_duration;
     use core::time::Duration;
     let mut buff = [0u8; 32];
+    let mut first = true;
 
     loop {
-        after_duration(Duration::from_micros(max_interframe_us)).await;
         match select(
             connection.read(&mut buff),
-            after_duration(Duration::from_micros(max_interframe_us))
+            after_duration(Duration::from_micros(max_interframe_us * match first {
+                true => first_bit_variance as u64,
+                false => 1,
+            }))
         )
         .await
         {
@@ -104,5 +113,6 @@ where
                 };
             }
         };
+        first = false;
     }
 }

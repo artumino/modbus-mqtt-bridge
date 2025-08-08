@@ -115,6 +115,7 @@ where
 {
     connection: &'a mut T,
     interframe_delay_us: u64, // Maximum time between frames in us
+    first_bit_variance: u8, // When reading the first bit we will wait interframe_delay_us times first_bit_variance
 }
 
 impl<'a, T> ModbusRTUChannel<'a, T>
@@ -126,13 +127,15 @@ where
             Parity::None => 0,
             _ => 1,
         } as u64;
-
         Self {
             connection,
             interframe_delay_us: match config.baud_rate > 19200 {
                 true => 1750,
                 _ => (3_500_000 * bits) / config.baud_rate as u64,
             },
+            first_bit_variance: config.first_bit_variance.unwrap_or(1),
         }
     }
+
+
 }
