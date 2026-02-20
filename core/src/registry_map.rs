@@ -6,6 +6,7 @@ pub enum RegistryType {
 }
 
 #[non_exhaustive]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RegistryValueType {
     Float32,
     Unsigned8,
@@ -28,7 +29,7 @@ pub struct RegistryEntry<'a> {
 }
 
 impl<'a> RegistryEntry<'a> {
-    pub fn parse_from_line(line: &'a str) -> RegistryEntry {
+    pub fn parse_from_line(line: &'a str) -> RegistryEntry<'a> {
         //1,0,i,f,l1_voltage
         let mut split = line.split(',');
 
@@ -72,7 +73,7 @@ pub struct RegistryMap<'a> {
 }
 
 impl<'a> RegistryMap<'a> {
-    pub fn new(in_memory_map: &'a str) -> RegistryMap {
+    pub fn new(in_memory_map: &'a str) -> RegistryMap<'a> {
         let lines = in_memory_map.lines();
         RegistryMap { lines }
     }

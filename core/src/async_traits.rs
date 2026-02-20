@@ -3,7 +3,7 @@ pub trait Read {
     fn read(
         &mut self,
         buf: &mut [u8],
-    ) -> impl futures::future::Future<Output = Result<usize, Self::Error>>;
+    ) -> impl Future<Output = Result<usize, Self::Error>>;
 }
 
 pub trait ReadExact {
@@ -11,7 +11,7 @@ pub trait ReadExact {
     fn read_exact(
         &mut self,
         buf: &mut [u8],
-    ) -> impl futures::future::Future<Output = Result<(), Self::Error>>;
+    ) -> impl Future<Output = Result<(), Self::Error>>;
 }
 
 pub trait Write {
@@ -19,12 +19,12 @@ pub trait Write {
     fn write(
         &mut self,
         buf: &[u8],
-    ) -> impl futures::future::Future<Output = Result<usize, Self::Error>>;
+    ) -> impl Future<Output = Result<usize, Self::Error>>;
 }
 
 pub trait Flush {
     type Error;
-    fn flush(&mut self) -> impl futures::future::Future<Output = Result<(), Self::Error>>;
+    fn flush(&mut self) -> impl Future<Output = Result<(), Self::Error>>;
 }
 
 #[cfg(feature = "embedded-io-async")]

@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
         2 => tokio_serial::StopBits::Two,
         _ => tokio_serial::StopBits::One,
     })
-    .timeout(std::time::Duration::from_millis(10));
+    .timeout(Duration::from_millis(10));
 
     loop {
         match run_bridge(

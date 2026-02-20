@@ -1,10 +1,9 @@
+use error_set::error_set;
 use heapless::String;
-use thiserror::Error;
-
+use rmodbus::ErrorKind;
 use crate::{
     async_traits::{Read, Write},
     configuration::{Parity, SerialConfiguration},
-    logging::Format,
 };
 
 mod rtu;
@@ -20,8 +19,6 @@ pub enum ModbusReadRequestType {
 pub enum ModbusDataType {
     F32(f32),
 }
-
-impl Format for ModbusDataType {}
 
 impl ModbusDataType {
     pub fn count(&self) -> usize {
@@ -49,7 +46,8 @@ impl ModbusDataType {
         match self {
             ModbusDataType::F32(value) => {
                 use core::fmt::Write;
-                write!(out, "{}", value).map_err(|_| ModbusError::CannotConvertToString(N))
+                write!(out, "{value}")
+                    .map_err(|_| ModbusError::CannotConvertToString { string_length: N })
             }
         }
     }
@@ -78,34 +76,37 @@ impl ModbusReadRequest {
     }
 }
 
-#[derive(Debug, Error)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum ModbusError {
-    #[error("Cannot write read request on modbus")]
-    ModbusWriteError,
-    #[error("Cannot build request")]
-    CannotBuildRequest,
-    #[error("Read error")]
-    ModbusReadError,
-    #[error("Read overflow")]
-    ModbusReadOverflow,
-    #[error("Read timedout")]
-    ModbusReadTimeout,
-    #[error("Parse error")]
-    CannotParse,
-    #[error("Underlying frame integrity error")]
-    FrameIntegrityError,
-    #[error("Cannot convert to string of length {0}")]
-    CannotConvertToString(usize),
+error_set! {
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    ModbusError = {
+       #[display("Cannot write read request on modbus")]
+       ModbusWriteError,
+       #[display("Cannot build request: {0}")]
+       CannotBuildRequest(ErrorKind),
+       #[display("Read error")]
+       ModbusReadError,
+       #[display("Read overflow")]
+       ModbusReadOverflow,
+       #[display("Read timeout")]
+       ModbusReadTimeout,
+       #[display("Parse error")]
+       CannotParse,
+       #[display("Underlying frame integrity error of kind: {0}")]
+       FrameIntegrityError(ErrorKind),
+       #[display("Error in header integrity check: {0}")]
+       HeaderIntegrityError(ErrorKind),
+       #[display("Cannot convert to string of length {string_length}")]
+       CannotConvertToString {
+           string_length: usize,
+       },
+    };
 }
-
-impl Format for ModbusError {}
 
 pub trait ModbusClient {
     fn send_and_read(
         &mut self,
         request: &ModbusReadRequest,
-    ) -> impl futures::future::Future<Output = Result<ModbusDataType, ModbusError>>;
+    ) -> impl Future<Output = Result<ModbusDataType, ModbusError>>;
 }
 
 pub struct ModbusRTUChannel<'a, T>
@@ -113,8 +114,8 @@ where
     T: Read + Write,
 {
     connection: &'a mut T,
-    t_1_char_us: u64,        // Time to send one character in us
     interframe_delay_us: u64, // Maximum time between frames in us
+    first_bit_variance: u8, // When reading the first bit we will wait interframe_delay_us times first_bit_variance
 }
 
 impl<'a, T> ModbusRTUChannel<'a, T>
@@ -122,26 +123,19 @@ where
     T: Read + Write,
 {
     pub fn new(connection: &'a mut T, config: &SerialConfiguration) -> Self {
-        let t_1_char = ((1_000_000
-            * (config.data_bits
-                + config.stop_bits
-                + match config.parity {
-                    Parity::None => 0,
-                    _ => 1,
-                }
-                + 2) as u64)
-            / (config.baud_rate as u64))
-            + 1;
-
-        let interframe_delay = match config.baud_rate {
-            ..=19200 => (3_500 * t_1_char) / 1_000,
-            _ => 1750,
-        };
-
+        let bits = config.data_bits as u64 + config.stop_bits as u64 + match config.parity {
+            Parity::None => 0,
+            _ => 1,
+        } as u64;
         Self {
             connection,
-            t_1_char_us: t_1_char,
-            interframe_delay_us: interframe_delay,
+            interframe_delay_us: match config.baud_rate > 19200 {
+                true => 1750,
+                _ => (3_500_000 * bits) / config.baud_rate as u64,
+            },
+            first_bit_variance: config.first_bit_variance.unwrap_or(1),
         }
     }
+
+
 }
