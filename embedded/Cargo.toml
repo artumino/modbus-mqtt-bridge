@@ -7,7 +7,7 @@ version = "0.1.0"
 [dependencies]
 embassy-executor = { version = "0.10.0", features = ["platform-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
 embassy-time = { version = "0.5.1", features = ["defmt", "defmt-timestamp-uptime"] }
-embassy-rp = { version = "0.10.0", features = ["defmt", "time-driver", "critical-section-impl", "rp2040"] }
+embassy-rp = { version = "0.10.0", features = ["defmt", "time-driver", "critical-section-impl", "rp2040", "unstable-pac"] }
 embassy-net = { version = "0.9.1", features = ["defmt", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
 embassy-futures = { version = "0.1.2" }
 embedded-nal-async = { version = "0.9.0" }
@@ -26,11 +26,19 @@ cortex-m = { version = "0.7.10", features = ["inline-asm"] }
 cortex-m-rt = "0.7.7"
 
 # Out dependencies
-modbus-mqtt-bridge-core = { path = "../core", features = ["embassy"], default-features = false }
+modbus-mqtt-bridge-core = { path = "../core", features = ["embassy", "ota"], default-features = false }
 rust-mqtt = { version = "0.6.0", features = ["v5", "bump", "defmt"], default-features = false }
 serde-json-core = { version = "0.7.0", features = ["defmt", "custom-error-messages"] }
+embassy-boot-rp = { version = "0.10.0", features = ["defmt"] }
+embassy-sync = "0.8.0"
+embassy-embedded-hal = "0.6.0"
+embedded-storage = "0.3"
 
 # this lets you use `cargo fix`!
+[build-dependencies]
+ed25519-dalek = { version = "3.0.0", default-features = false }
+getrandom = "0.4.3"
+
 [[bin]]
 name = "modbus-mqtt-bridge-embedded"
 test = false

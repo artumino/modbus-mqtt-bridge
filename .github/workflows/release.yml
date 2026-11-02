@@ -1,0 +1,74 @@
+name: Release firmware
+
+# Push a tag like v0.1.1 (must match `version` in embedded/Cargo.toml).
+# Needs: variable OTA_PUBLIC_KEY_B64, secret OTA_SECRET_KEY_B64 (base64 of the raw 32 byte keys).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches firmware version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' embedded/Cargo.toml | head -n1)
+          [ "v$version" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} != embedded version v$version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: OTA keys
+        env:
+          PUBLIC_KEY: ${{ vars.OTA_PUBLIC_KEY_B64 }}
+          SECRET_KEY: ${{ secrets.OTA_SECRET_KEY_B64 }}
+        run: |
+          mkdir -p embedded/keys
+          echo "$PUBLIC_KEY" | base64 -d > embedded/keys/ota_public.key
+          echo "$SECRET_KEY" | base64 -d > embedded/keys/ota_secret.key
+          chmod 600 embedded/keys/ota_secret.key
+          [ "$(stat -c %s embedded/keys/ota_public.key)" = 32 ] && [ "$(stat -c %s embedded/keys/ota_secret.key)" = 32 ]
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            bootloader
+            embedded
+            service
+
+      - name: Build bootloader and firmware
+        run: |
+          (cd bootloader && cargo build --release)
+          (cd embedded && cargo build --release)
+
+      - name: Sign and assemble
+        run: |
+          mkdir release
+          cp bootloader/target/thumbv6m-none-eabi/release/modbus-mqtt-bridge-bootloader release/bootloader.elf
+          cp embedded/target/thumbv6m-none-eabi/release/modbus-mqtt-bridge-embedded release/firmware.elf
+          cd service
+          cargo run --release --bin ota -- sign \
+            --elf ../release/firmware.elf \
+            --key ../embedded/keys/ota_secret.key \
+            --version "$VERSION" --out ../release
+          cargo run --release --bin ota -- factory \
+            --bootloader-elf ../release/bootloader.elf \
+            --firmware ../release/firmware.bin \
+            --out ../release/factory.bin
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # firmware.bin + firmware.manifest: for `ota publish`
+          # factory.bin: bootloader + firmware for a blank chip, flash with probe-rs
+          # bootloader.elf, firmware.elf: for probe-rs / defmt logs
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes \
+            release/firmware.bin release/firmware.manifest release/factory.bin \
+            release/bootloader.elf release/firmware.elf

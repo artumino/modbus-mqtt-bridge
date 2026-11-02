@@ -4,7 +4,11 @@
 #![no_std]
 #![no_main]
 
+mod ota;
+
+use core::cell::RefCell;
 use core::net::SocketAddr;
+use core::num::NonZero;
 use core::str::FromStr;
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -15,11 +19,15 @@ use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{Config, Stack, StackResources};
+use embassy_boot_rp::AlignedBuffer;
+use embassy_rp::flash::{Blocking, Flash};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0, UART1};
 use embassy_rp::pio::Pio;
 use embassy_rp::watchdog::Watchdog;
 use embassy_rp::{bind_interrupts, dma, pio, uart};
+use embassy_sync::blocking_mutex::Mutex;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_time::{Duration, Instant, Timer, with_timeout};
 use embedded_nal_async::TcpConnect;
 use modbus_mqtt_bridge_core::bridge;
@@ -27,6 +35,7 @@ use modbus_mqtt_bridge_core::configuration::{Configuration, NetworkConfiguration
 
 use modbus_mqtt_bridge_core::configuration::Parity;
 use modbus_mqtt_bridge_core::modbus::ModbusRTUChannel;
+use modbus_mqtt_bridge_core::ota::{Artifact, MAX_SETTINGS_SIZE, validate_config, validate_registry};
 use modbus_mqtt_bridge_core::registry_map::RegistryMap;
 use rust_mqtt::buffer::BumpBuffer;
 use rust_mqtt::client::Client;
@@ -49,6 +58,12 @@ const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
 
 const REGISTRY_MAP: &str = include_str!("../assets/registry_map");
 const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
+
+const FLASH_SIZE: usize = 2 * 1024 * 1024;
+/// Memory backing the MQTT client, must hold the largest packet we accept (see `ota::MAX_PACKET_SIZE`)
+const MQTT_MEMORY_SIZE: usize = 2048;
+/// Upper bound for downloading an image; every chunk also feeds the watchdog
+const OTA_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 
 /// Hardware watchdog period, the RP2040 maximum is ~8.3s
 const WATCHDOG_PERIOD: Duration = Duration::from_secs(8);
@@ -111,14 +126,47 @@ fn parse_config(config: &Configuration) -> uart::Config {
 async fn main(spawner: Spawner) {
     info!("Booting...");
 
-    let try_parse_config = serde_json_core::from_str::<Configuration>(CONFIGURATION_FILE);
+    let p = embassy_rp::init(Default::default());
+
+    // The bootloader's DFU/state partitions and the settings files live on the same flash chip
+    let flash = Mutex::<NoopRawMutex, _>::new(RefCell::new(Flash::<_, Blocking, FLASH_SIZE>::new_blocking(
+        p.FLASH,
+    )));
+    let mut settings = ota::settings_store(&flash);
+
+    // Configuration and registry map: the newest signed files received over the air that work,
+    // the ones compiled into the firmware otherwise
+    let mut config_buffer = [0u8; MAX_SETTINGS_SIZE];
+    let config_bytes = ota::load_settings(
+        &mut settings,
+        Artifact::Config,
+        &mut config_buffer,
+        CONFIGURATION_FILE.as_bytes(),
+        |data| validate_config(data).is_ok(),
+    );
+    let mut registry_buffer = [0u8; MAX_SETTINGS_SIZE];
+    let registry_text = validate_registry(ota::load_settings(
+        &mut settings,
+        Artifact::Registry,
+        &mut registry_buffer,
+        REGISTRY_MAP.as_bytes(),
+        |data| validate_registry(data).is_ok(),
+    ))
+    .unwrap_or(REGISTRY_MAP);
+
+    let try_parse_config = serde_json_core::from_slice::<Configuration>(config_bytes);
     if let Err(err) = try_parse_config {
         error!("Failed to parse configuration: {}", err);
         return;
     }
     let (bridge_config, _) = try_parse_config.unwrap();
 
-    let p = embassy_rp::init(Default::default());
+    // Started before anything can hang (joining the Wi-Fi with a wrong password never returns):
+    // a configuration that can't get a polling cycle through gets the device reset and, on the next
+    // boot, replaced by the previous one
+    let session_timeout = session_timeout(&bridge_config, registry_text);
+    let stale_after_secs = (3 * (session_timeout.as_millis() + bridge_config.polling_interval_ms) / 1000) as u32;
+    spawner.spawn(unwrap!(watchdog_task(Watchdog::new(p.WATCHDOG), stale_after_secs)));
 
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
@@ -183,9 +231,9 @@ async fn main(spawner: Spawner) {
     client.set_timeout(Some(Duration::from_millis(bridge_config.reconnect_delay_ms.max(10_000))));
     let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint).unwrap();
 
-    let session_timeout = session_timeout(&bridge_config);
-    let stale_after_secs = (3 * (session_timeout.as_millis() + bridge_config.polling_interval_ms) / 1000) as u32;
-    spawner.spawn(unwrap!(watchdog_task(Watchdog::new(p.WATCHDOG), stale_after_secs)));
+    let mut updater_buffer = AlignedBuffer([0u8; 1]);
+    let mut slot = ota::firmware_slot(&flash, updater_buffer.as_mut());
+    info!("Firmware version {:#08x}", ota::FIRMWARE_VERSION);
 
     loop {
         ensure_network(&mut control, stack, &bridge_config.network).await;
@@ -218,14 +266,15 @@ async fn main(spawner: Spawner) {
         };
         control.gpio_set(0, false).await;
 
-        // Bound the whole MQTT session so a stuck connect/publish/disconnect cannot block the loop
-        let session = async {
-            let mut mqtt_memory = [0u8; 512];
-            let mut mqtt_buffer = BumpBuffer::new(&mut mqtt_memory);
-            let mut mqtt_client = Client::<'_, '_, _, _, 1, 1, 1, 1, 16, 0, 0>::new(&mut mqtt_buffer);
+        let mut mqtt_memory = [0u8; MQTT_MEMORY_SIZE];
+        let mut mqtt_buffer = BumpBuffer::new(&mut mqtt_memory);
+        let mut mqtt_client: ota::MqttClient = Client::new(&mut mqtt_buffer);
 
+        // Bound the polling cycle so a stuck connect/publish cannot block the loop
+        let polling = async {
             let connect_options = ConnectOptions::new()
                 .clean_start()
+                .maximum_packet_size(unwrap!(NonZero::new(ota::MAX_PACKET_SIZE)))
                 .user_name(unwrap!(MqttString::try_from(bridge_config.mqtt.username).ok()))
                 .password(unwrap!(MqttBinary::try_from(bridge_config.mqtt.password).ok()));
 
@@ -246,7 +295,7 @@ async fn main(spawner: Spawner) {
             info!("Connected to MQTT broker");
 
             let mut result = Ok(());
-            let registry_map = RegistryMap::new(REGISTRY_MAP);
+            let registry_map = RegistryMap::new(registry_text);
             for entry in registry_map {
                 control.gpio_set(0, true).await;
                 info!("Reading entry topic={} at address={} of type={}", entry.topic, entry.address, entry.reg_value_type);
@@ -270,17 +319,54 @@ async fn main(spawner: Spawner) {
                     Timer::after(Duration::from_millis(delay)).await;
                 }
             }
-
             control.gpio_set(0, false).await;
-            if let Err(err) = mqtt_client.disconnect(&DisconnectOptions::new()).await {
-                error!("Failed to disconnect from MQTT broker: {:?}", err);
-            }
             result
         };
+        let polling = with_timeout(session_timeout, polling).await;
 
-        match with_timeout(session_timeout, session).await {
+        match polling {
             Ok(Ok(())) => {
-                LAST_SUCCESS_SECS.store(Instant::now().as_secs() as u32, Ordering::Relaxed);
+                mark_success();
+                // This image just completed a full cycle: stop the bootloader from reverting it
+                slot.confirm_boot();
+                settings.confirm();
+
+                let update = with_timeout(
+                    OTA_TIMEOUT,
+                    ota::check_and_update(
+                        &mut mqtt_client,
+                        &mut slot,
+                        &mut settings,
+                        bridge_config.mqtt.device_id,
+                        mark_success
+                    ),
+                )
+                .await;
+                let update_ready = match update {
+                    Ok(Ok(ota::Outcome::Ready)) => true,
+                    Ok(Ok(ota::Outcome::NoUpdate)) => false,
+                    Ok(Err(_)) => {
+                        light_led_exception_pattern(&mut control, 4).await;
+                        false
+                    }
+                    Err(_) => {
+                        error!("Firmware update timed out after {}s", OTA_TIMEOUT.as_secs());
+                        light_led_exception_pattern(&mut control, 4).await;
+                        false
+                    }
+                };
+
+                match with_timeout(Duration::from_secs(5), mqtt_client.disconnect(&DisconnectOptions::new())).await {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(err)) => error!("Failed to disconnect from MQTT broker: {:?}", err),
+                    Err(_) => error!("Timed out disconnecting from MQTT broker"),
+                }
+
+                if update_ready {
+                    // Let the log flush, the bootloader swaps the verified image in on reset
+                    Timer::after_millis(200).await;
+                    cortex_m::peripheral::SCB::sys_reset();
+                }
                 Timer::after(Duration::from_millis(bridge_config.polling_interval_ms)).await;
             }
             Ok(Err(())) => {
@@ -296,10 +382,15 @@ async fn main(spawner: Spawner) {
     }
 }
 
+/// Tells the watchdog task the bridge is making progress
+fn mark_success() {
+    LAST_SUCCESS_SECS.store(Instant::now().as_secs() as u32, Ordering::Relaxed);
+}
+
 /// Upper bound for one full polling cycle: every registry entry exhausting its modbus retries,
 /// plus a fixed margin for the MQTT connect/disconnect handshakes.
-fn session_timeout(config: &Configuration) -> Duration {
-    let entries = RegistryMap::new(REGISTRY_MAP).count() as u64;
+fn session_timeout(config: &Configuration, registry_text: &str) -> Duration {
+    let entries = RegistryMap::new(registry_text).count() as u64;
     let attempts = config.serial.retry_count.unwrap_or(1).max(1) as u64;
     let per_entry_ms = attempts * (config.serial.retry_delay_ms.unwrap_or(0) + 1_000)
         + config.inter_request_delay_ms.unwrap_or(0);

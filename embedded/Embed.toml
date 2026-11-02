@@ -3,3 +3,7 @@ chip = "RP2040"
 
 [default.rtt]
 enabled = true
+
+[default.flashing]
+# The ELF carries a copy of BOOT2 at the start of flash, don't wipe the bootloader that lives in that sector
+restore_unwritten_bytes = true
