@@ -52,11 +52,18 @@ fn ensure_ota_keys() {
 
 fn main() {
     ensure_ota_keys();
-    // Create configuration file if missing.
+    // Create the compiled-in configuration and registry map if missing (they are git ignored so
+    // local changes don't get committed, the defaults come from the repository root).
     if !PathBuf::from("assets/configuration.json").exists() {
         File::create("assets/configuration.json")
             .unwrap()
             .write_all(include_bytes!("../configuration.example.json"))
+            .unwrap();
+    }
+    if !PathBuf::from("assets/registry_map").exists() {
+        File::create("assets/registry_map")
+            .unwrap()
+            .write_all(include_bytes!("../registry_map"))
             .unwrap();
     }
     // Put `memory.x` in our output directory and ensure it's
@@ -76,7 +83,7 @@ fn main() {
     println!("cargo:rerun-if-changed=keys/ota_public.key");
     println!("cargo:rerun-if-changed=\"assets/configuration.json\"");
     println!("cargo:rerun-if-changed=\"../configuration.example.json\"");
-    println!("cargo:rerun-if-changed=\"../registry_map\"");
+    println!("cargo:rerun-if-changed=../registry_map");
 
     println!("cargo:rustc-link-arg-bins=--nmagic");
     println!("cargo:rustc-link-arg-bins=-Tlink.x");
