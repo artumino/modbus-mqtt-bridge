@@ -1,3 +1,5 @@
 target
 assets/configuration.json
 assets/registry_map
+keys/ota_secret.key
+keys/ota_public.key

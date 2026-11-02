@@ -12,6 +12,12 @@ error_set = { version = "0.9.2", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["derive"] }
 heapless = "0.9.3"
 embedded-io-async = "0.7.0"
+serde-json-core = { version = "0.7.0", default-features = false }
+
+# Firmware updates (feature `ota`)
+salty = { version = "0.3", optional = true }
+embassy-boot = { version = "0.7.0", features = ["ed25519-salty"], optional = true }
+embedded-storage = { version = "0.3", optional = true }
 embassy-futures = "0.1.2"
 
 embassy-time = { version = "0.5.1", default-features = false, optional = true }
@@ -21,7 +27,18 @@ tokio = { version = "1", features = ["time"], optional = true }
 [features]
 default = ["std", "tokio"]
 embassy = ["dep:embassy-time", "defmt"]
-defmt = ["dep:defmt", "embedded-io-async/defmt", "rust-mqtt/defmt", "embassy-time?/defmt", "embassy-time?/defmt-timestamp-uptime", "rmodbus/defmt"]
+defmt = ["dep:defmt", "embedded-io-async/defmt", "embassy-boot?/defmt", "rust-mqtt/defmt", "embassy-time?/defmt", "embassy-time?/defmt-timestamp-uptime", "rmodbus/defmt"]
 log = ["dep:log", "rust-mqtt/log", "embassy-time?/log"]
 std = ["log", "embassy-time?/std"]
 tokio = ["dep:tokio"]
+# Over-the-air update logic (signature checks, chunked download, bootloader integration)
+ota = ["dep:salty", "dep:embassy-boot", "dep:embedded-storage"]
+
+[[test]]
+name = "ota"
+required-features = ["ota"]
+
+[dev-dependencies]
+futures = "0.3"
+embassy-embedded-hal = "0.6"
+embassy-sync = "0.8"
