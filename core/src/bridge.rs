@@ -95,7 +95,7 @@ where
     format_topic(&mut topic, base_topic, registry_entry.topic)?;
 
     let modbus_request = ModbusReadRequest::try_from(registry_entry)?;
-    let mut retry_count = config.serial.retry_count.unwrap_or(1);
+    let mut attempts_left = config.serial.retry_count.unwrap_or(1).max(1);
 
     let value: ModbusDataType = loop {
         match modbus_client
@@ -105,9 +105,9 @@ where
         {
             Ok(value) => break value,
             Err(err) => {
-                retry_count -= 1;
+                attempts_left -= 1;
                 error!("Modbus error {}", err);
-                if retry_count > 0 {
+                if attempts_left > 0 {
                     if let Some(delay) = config.serial.retry_delay_ms {
                         timing::after_duration(Duration::from_millis(delay)).await;
                     }
