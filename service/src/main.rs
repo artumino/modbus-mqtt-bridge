@@ -2,7 +2,7 @@ use std::{net::SocketAddr, str::FromStr, time::Duration};
 
 use log::{error, info};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use embedded_io_adapters::tokio_1::FromTokio;
 use modbus_mqtt_bridge_core::modbus::ModbusRTUChannel;
 use modbus_mqtt_bridge_core::{
@@ -11,8 +11,12 @@ use modbus_mqtt_bridge_core::{
     registry_map::RegistryMap,
 };
 use rust_mqtt::{
-    client::{client::MqttClient, client_config::ClientConfig},
-    utils::rng_generator::CountingRng,
+    buffer::AllocBuffer,
+    client::{
+        Client,
+        options::{ConnectOptions, DisconnectOptions},
+    },
+    types::{MqttBinary, MqttString},
 };
 use serde::Deserialize;
 use tokio::{fs::File, io::AsyncReadExt};
@@ -60,7 +64,7 @@ async fn main() -> Result<()> {
         2 => tokio_serial::StopBits::Two,
         _ => tokio_serial::StopBits::One,
     })
-    .timeout(std::time::Duration::from_millis(10));
+    .timeout(Duration::from_millis(10));
 
     loop {
         match run_bridge(
@@ -95,29 +99,22 @@ async fn run_bridge(
         let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint)?;
         let tpc_stream = FromTokio::new(tokio::net::TcpStream::connect(mqtt_endpoint).await?);
 
-        //Setup MQTT Config
-        let mut config = ClientConfig::new(
-            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-            CountingRng(20000),
-        );
-        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id(bridge_config.mqtt.device_id);
-        config.add_username(bridge_config.mqtt.username);
-        config.add_password(bridge_config.mqtt.password);
-        config.max_packet_size = 2048;
+        let mut buffer = AllocBuffer;
+        let mut mqtt_client = Client::<'_, '_, _, _, 1, 1, 1, 1, 16, 0, 0>::new(&mut buffer);
 
-        let mut tcp_recv_buffer = [0; 2048];
-        let mut tcp_write_buffer = [0; 2048];
-        let mut mqtt_client = MqttClient::<_, 30, _>::new(
-            tpc_stream,
-            &mut tcp_write_buffer,
-            2048,
-            &mut tcp_recv_buffer,
-            2048,
-            config,
-        );
+        let connect_options = ConnectOptions::new()
+            .clean_start()
+            .user_name(MqttString::try_from(bridge_config.mqtt.username).map_err(|e| anyhow!("Invalid MQTT username: {e:?}"))?)
+            .password(MqttBinary::try_from(bridge_config.mqtt.password).map_err(|e| anyhow!("Invalid MQTT password: {e:?}"))?);
 
-        if let Err(err) = mqtt_client.connect_to_broker().await {
+        if let Err(err) = mqtt_client
+            .connect(
+                tpc_stream,
+                &connect_options,
+                Some(MqttString::try_from(bridge_config.mqtt.device_id).map_err(|e| anyhow!("Invalid MQTT device id: {e:?}"))?),
+            )
+            .await
+        {
             error!("Failed to connect to MQTT broker: {:?}", err);
             tokio::time::sleep(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
             continue 'connection;
@@ -143,7 +140,7 @@ async fn run_bridge(
             }
         }
 
-        if let Err(err) = mqtt_client.disconnect().await {
+        if let Err(err) = mqtt_client.disconnect(&DisconnectOptions::new()).await {
             error!("Failed to disconnect from MQTT broker: {:?}", err);
         }
 
