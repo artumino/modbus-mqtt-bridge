@@ -3,8 +3,6 @@
 
 #![no_std]
 #![no_main]
-#![allow(incomplete_features)]
-mod uart_async_adapter;
 
 use core::net::SocketAddr;
 use core::str::FromStr;
@@ -19,7 +17,7 @@ use embassy_net::{Config, StackResources};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0, UART1};
 use embassy_rp::pio::Pio;
-use embassy_rp::{bind_interrupts, pio, uart};
+use embassy_rp::{bind_interrupts, dma, pio, uart};
 use embassy_time::{Duration, Timer};
 use embedded_nal_async::TcpConnect;
 use modbus_mqtt_bridge_core::bridge;
@@ -28,18 +26,23 @@ use modbus_mqtt_bridge_core::configuration::Configuration;
 use modbus_mqtt_bridge_core::configuration::Parity;
 use modbus_mqtt_bridge_core::modbus::ModbusRTUChannel;
 use modbus_mqtt_bridge_core::registry_map::RegistryMap;
-use rust_mqtt::client::client::MqttClient;
-use rust_mqtt::client::client_config::ClientConfig;
-use rust_mqtt::utils::rng_generator::CountingRng;
+use rust_mqtt::buffer::BumpBuffer;
+use rust_mqtt::client::Client;
+use rust_mqtt::client::options::{ConnectOptions, DisconnectOptions};
+use rust_mqtt::types::{MqttBinary, MqttString};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
+    DMA_IRQ_0 => dma::InterruptHandler<DMA_CH0>;
     UART1_IRQ => uart::BufferedInterruptHandler<UART1>;
 });
 
-const WIFI_FIRMWARE: &[u8] = include_bytes!("../assets/firmwares/43439A0.bin");
+const WIFI_FIRMWARE: &cyw43::Aligned<cyw43::A4, [u8]> =
+    cyw43::aligned_bytes!("../assets/firmwares/43439A0.bin");
+const WIFI_NVRAM: &cyw43::Aligned<cyw43::A4, [u8]> =
+    cyw43::aligned_bytes!("../assets/firmwares/nvram_rp2040.bin");
 const WIFI_CLM: &[u8] = include_bytes!("../assets/firmwares/43439A0_clm.bin");
 
 const REGISTRY_MAP: &str = include_str!("../assets/registry_map");
@@ -47,7 +50,7 @@ const CONFIGURATION_FILE: &str = include_str!("../assets/configuration.json");
 
 #[embassy_executor::task]
 async fn wifi_task(
-    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
+    runner: cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>>,
 ) -> ! {
     runner.run().await
 }
@@ -102,13 +105,13 @@ async fn main(spawner: Spawner) {
         cs,
         p.PIN_24,
         p.PIN_29,
-        p.DMA_CH0,
+        dma::Channel::new(p.DMA_CH0, Irqs),
     );
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, WIFI_FIRMWARE).await;
-    unwrap!(spawner.spawn(wifi_task(runner)));
+    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, WIFI_FIRMWARE, WIFI_NVRAM).await;
+    spawner.spawn(unwrap!(wifi_task(runner)));
 
     control.init(WIFI_CLM).await;
     control
@@ -129,7 +132,7 @@ async fn main(spawner: Spawner) {
         seed,
     );
 
-    unwrap!(spawner.spawn(net_task(runner)));
+    spawner.spawn(unwrap!(net_task(runner)));
 
     while let Err(err) = control
         .join(
@@ -138,7 +141,7 @@ async fn main(spawner: Spawner) {
         )
         .await
     {
-        info!("join failed with status={}", err.status);
+        info!("join failed: {:?}", err);
     }
 
     info!("waiting for link...");
@@ -150,7 +153,7 @@ async fn main(spawner: Spawner) {
     //Init uart connection
     let mut uart_recv_buffer = [0u8; 256];
     let mut uart_write_buffer = [0u8; 256];
-    let uart_bus = uart::BufferedUart::new(
+    let mut uart_bus = uart::BufferedUart::new(
         p.UART1,
         p.PIN_8,
         p.PIN_9,
@@ -159,16 +162,12 @@ async fn main(spawner: Spawner) {
         &mut uart_recv_buffer,
         parse_config(&bridge_config),
     );
-    let mut rp_uart_bus = uart_async_adapter::RpUartAsyncAdapter::new(uart_bus);
-    let mut rtu_channel = ModbusRTUChannel::new(&mut rp_uart_bus, &bridge_config.serial);
+    let mut rtu_channel = ModbusRTUChannel::new(&mut uart_bus, &bridge_config.serial);
 
     // And now we can use it!
     let state: TcpClientState<1, 1024, 1024> = TcpClientState::new();
     let client = TcpClient::new(stack, &state);
     let mqtt_endpoint = SocketAddr::from_str(bridge_config.mqtt.endpoint).unwrap();
-
-    let mut tcp_recv_buffer = [0; 256];
-    let mut tcp_write_buffer = [0; 256];
 
     'connection_loop: loop {
         control.gpio_set(0, true).await;
@@ -199,31 +198,29 @@ async fn main(spawner: Spawner) {
         };
         control.gpio_set(0, false).await;
 
-        //Setup MQTT Config
-        let mut config = ClientConfig::new(
-            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-            CountingRng(20000),
-        );
-        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id(bridge_config.mqtt.device_id);
-        config.add_username(bridge_config.mqtt.username);
-        config.add_password(bridge_config.mqtt.password);
-        config.max_packet_size = 256;
+        let mut mqtt_memory = [0u8; 512];
+        let mut mqtt_buffer = BumpBuffer::new(&mut mqtt_memory);
+        let mut mqtt_client = Client::<'_, '_, _, _, 1, 1, 1, 1, 16, 0, 0>::new(&mut mqtt_buffer);
 
-        let mut mqtt_client = MqttClient::<_, 30, _>::new(
-            connection,
-            &mut tcp_write_buffer,
-            256,
-            &mut tcp_recv_buffer,
-            256,
-            config,
-        );
+        let connect_options = ConnectOptions::new()
+            .clean_start()
+            .user_name(unwrap!(MqttString::try_from(bridge_config.mqtt.username).ok()))
+            .password(unwrap!(MqttBinary::try_from(bridge_config.mqtt.password).ok()));
 
-        if let Err(err) = mqtt_client.connect_to_broker().await {
+        if let Err(err) = mqtt_client
+            .connect(
+                connection,
+                &connect_options,
+                Some(unwrap!(MqttString::try_from(bridge_config.mqtt.device_id).ok())),
+            )
+            .await
+        {
             error!("Failed to connect to MQTT broker: {:?}", err);
             Timer::after(Duration::from_millis(bridge_config.reconnect_delay_ms)).await;
             continue 'connection_loop;
         }
+        // The CONNACK contents are no longer referenced, free the buffer for the next packet
+        unsafe { mqtt_client.buffer_mut().reset() };
 
         info!("Connected to MQTT broker");
 
@@ -252,7 +249,7 @@ async fn main(spawner: Spawner) {
         }
 
         control.gpio_set(0, false).await;
-        if let Err(err) = mqtt_client.disconnect().await {
+        if let Err(err) = mqtt_client.disconnect(&DisconnectOptions::new()).await {
             error!("Failed to disconnect from MQTT broker: {:?}", err);
         }
 

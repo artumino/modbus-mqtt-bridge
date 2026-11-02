@@ -1,10 +1,8 @@
 use error_set::error_set;
 use heapless::String;
 use rmodbus::ErrorKind;
-use crate::{
-    async_traits::{Read, Write},
-    configuration::{Parity, SerialConfiguration},
-};
+use embedded_io_async::{Read, Write};
+use crate::configuration::{Parity, SerialConfiguration};
 
 mod rtu;
 
@@ -78,7 +76,7 @@ impl ModbusReadRequest {
 
 error_set! {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-    ModbusError = {
+    ModbusError := {
        #[display("Cannot write read request on modbus")]
        ModbusWriteError,
        #[display("Cannot build request: {0}")]
@@ -99,7 +97,7 @@ error_set! {
        CannotConvertToString {
            string_length: usize,
        },
-    };
+    }
 }
 
 pub trait ModbusClient {

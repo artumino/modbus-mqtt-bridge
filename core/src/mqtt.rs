@@ -1,16 +1,15 @@
 use error_set::error_set;
 
-#[cfg(feature = "embedded-io-async")]
-mod embedded_io;
+mod client;
 
 error_set! {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-    MqttError = {
-        #[display("Send error with reason {reason_code}")]
-        SendError {
-            reason_code: rust_mqtt::packet::v5::reason_codes::ReasonCode,
-        },
-    };
+    MqttError := {
+        #[display("Invalid MQTT topic")]
+        InvalidTopic,
+        #[display("Failed to publish message")]
+        SendError,
+    }
 }
 
 pub trait MqttSender {

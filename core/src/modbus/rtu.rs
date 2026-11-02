@@ -3,14 +3,12 @@ use rmodbus::{self, ModbusProto, client::ModbusRequest};
 
 #[cfg(feature = "defmt")]
 use defmt::{error, info};
-use embedded_io_async::Write;
+use embassy_futures::select::{Either, select};
+use embedded_io_async::{Read, Write};
 #[cfg(feature = "log")]
 use log::{error, info};
 
-use futures::future::Either;
-use crate::async_traits::{Flush, Read, ReadExact};
 use crate::modbus::ModbusReadRequestType;
-use crate::tasks::select;
 
 use super::{ModbusClient, ModbusDataType, ModbusError, ModbusRTUChannel, ModbusReadRequest};
 
@@ -22,7 +20,7 @@ impl From<&ModbusReadRequest> for ModbusRequest {
 
 impl<'a, T> ModbusClient for ModbusRTUChannel<'a, T>
 where
-    T: Read + Write + Flush + ReadExact,
+    T: Read + Write,
 {
     async fn send_and_read(
         &mut self,
@@ -53,7 +51,7 @@ where
             .write_all(&request_data)
             .await
             .map_err(|_| ModbusError::ModbusWriteError)?;
-        embedded_io_async::Write::flush(self.connection).await.map_err(|_| ModbusError::ModbusWriteError)?;
+        self.connection.flush().await.map_err(|_| ModbusError::ModbusWriteError)?;
 
         let mut response = Vec::<u8, 256>::new();
         read_rtu_frame(&mut response, self.connection, self.interframe_delay_us, self.first_bit_variance)
@@ -95,7 +93,7 @@ where
         )
         .await
         {
-            Either::Left(response) => match response {
+            Either::First(response) => match response {
                 Ok(size) => {
                     buf.extend_from_slice(&buff[..size])
                         .map_err(|_| ModbusError::ModbusReadOverflow)?;
@@ -105,7 +103,7 @@ where
                     return Err(ModbusError::ModbusReadError);
                 }
             },
-            Either::Right(_) => {
+            Either::Second(_) => {
                 return if !buf.is_empty() {
                     Ok(())
                 } else {

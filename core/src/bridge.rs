@@ -15,7 +15,7 @@ use log::error;
 
 error_set! {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-    ModBusMqttBridgeError = {
+    ModBusMqttBridgeError := {
         #[display("MQTT Error: {0}")]
         MqttError(MqttError),
         #[display("Modbus error with reason {0}")]
@@ -31,7 +31,7 @@ error_set! {
         },
         #[display("Registry parse error")]
         CannotParseRegistry,
-    };
+    }
 }
 
 fn format_topic<const N: usize>(
